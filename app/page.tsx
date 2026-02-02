@@ -1,65 +1,93 @@
+"use client";
+
+import { useState } from "react";
+import { Search } from "lucide-react";
+import { searchSongs, JioSaavnSong } from "@/lib/api/jiosaavn";
+import { usePlayer } from "@/lib/contexts/PlayerContext";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<JioSaavnSong[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { playSong } = usePlayer();
+  const router = useRouter();
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+
+    setLoading(true);
+    const data = await searchSongs(query);
+    setResults(data);
+    setLoading(false);
+  };
+
+  const handlePlay = (item: JioSaavnSong) => {
+    // Map JioSaavnSong to our shared Song interface
+    // Note: JioSaavn api returns image as array, we pick the highest quality
+    const highQualityImage = item.image[item.image.length - 1]?.link;
+    const highQualityAudio = item.downloadUrl[item.downloadUrl.length - 1]?.link;
+
+    // We can play immediately, but navigating is better.
+    // However, if we navigate, the new page should handle playing.
+    // Let's just navigate.
+    router.push(`/song/${item.id}`);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="min-h-screen p-4 md:p-8 pt-20 pb-32 max-w-7xl mx-auto">
+      <div className="flex flex-col items-center justify-center space-y-8 mb-12">
+        <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 text-center">
+          LyricLingo
+        </h1>
+        <p className="text-zinc-400 text-center max-w-lg">
+          Listen to global music with real-time sync lyrics and instant translation.
+        </p>
+
+        <form onSubmit={handleSearch} className="w-full max-w-xl relative">
+          <input
+            type="text"
+            placeholder="Search for a song..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 rounded-full bg-zinc-900/50 border border-zinc-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none text-white transition glass"
+          />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
+          <button
+            type="submit"
+            disabled={loading}
+            className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-purple-600 rounded-full text-sm font-medium hover:bg-purple-700 transition disabled:opacity-50"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            {loading ? "Searching..." : "Search"}
+          </button>
+        </form>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {results.map((song) => {
+          const imageUrl = song.image[song.image.length - 1]?.link;
+          return (
+            <div
+              key={song.id}
+              onClick={() => handlePlay(song)}
+              className="group flex items-center p-3 gap-4 rounded-xl hover:bg-white/5 transition cursor-pointer glass-card"
+            >
+              <div className="relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden">
+                <Image src={imageUrl} alt={song.name} fill className="object-cover group-hover:scale-110 transition duration-500" />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <span className="text-white">▶</span>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-white truncate">{song.name}</h3>
+                <p className="text-sm text-zinc-400 truncate">{song.primaryArtists}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </main>
   );
 }
