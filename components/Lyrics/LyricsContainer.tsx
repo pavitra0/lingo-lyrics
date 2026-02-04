@@ -1,11 +1,10 @@
-"use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { translateText } from "@/lib/lingoClient";
+import { translateText, getWordMeaning } from "@/lib/lingoClient";
 import { Heart } from "lucide-react";
+import { WordPopup } from "./WordPopup";
 
 interface LrcLine {
     time: number;
@@ -31,7 +30,7 @@ const parseLrc = (lrc: string): LrcLine[] => {
         if (match) {
             const minutes = parseInt(match[1]);
             const seconds = parseInt(match[2]);
-            const milliseconds = parseInt(match[3].padEnd(3, '0')); // Handle 2 or 3 digits
+            const milliseconds = parseInt(match[3].padEnd(3, '0'));
             const time = minutes * 60 + seconds + milliseconds / 1000;
             const text = match[4].trim();
             if (text) {
@@ -42,7 +41,7 @@ const parseLrc = (lrc: string): LrcLine[] => {
     return result;
 };
 
-export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsContainerProps) {
+export function LyricsContainer({ syncedLyrics, title, artist = "Unknown Artist", songId }: LyricsContainerProps) {
     const { progress, seek } = usePlayer();
     const [lines, setLines] = useState<LrcLine[]>([]);
     const [activeindex, setActiveIndex] = useState(-1);
@@ -51,20 +50,37 @@ export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsC
     const [translatedLines, setTranslatedLines] = useState<Record<number, string>>({});
     const [favorites, setFavorites] = useState<string[]>([]);
 
+
+    // Popup State
+    const [popupWord, setPopupWord] = useState<string | null>(null);
+    const [popupData, setPopupData] = useState<{ meaning: string; translation: string } | null>(null);
+    const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
+    const [popupLoading, setPopupLoading] = useState(false);
+
     useEffect(() => {
         if (syncedLyrics) {
             setLines(parseLrc(syncedLyrics));
         }
     }, [syncedLyrics]);
 
+
+    interface FavoriteLine {
+        id: string; // Unique ID: songId|time
+        songId: string;
+        time: number;
+        text: string;
+        title: string;
+        artist: string;
+        image?: string;
+    }
+
     useEffect(() => {
-        const saved = localStorage.getItem("lyric_favorites");
-        if (saved) {
+        // Load IDs only for local UI state
+        const savedDB = localStorage.getItem("lyric_favorites_db");
+        if (savedDB) {
             try {
-                const parsed = JSON.parse(saved);
-                // Assuming simple array of strings (line text) for now, or objects
-                // Let's store unique keys: `${songId}-${lineText}`
-                setFavorites(parsed);
+                const parsed: FavoriteLine[] = JSON.parse(savedDB);
+                setFavorites(parsed.map(f => `${f.songId}|${f.time}|${f.text}`));
             } catch (e) {
                 console.error(e);
             }
@@ -72,26 +88,43 @@ export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsC
     }, []);
 
     const toggleFavorite = (line: LrcLine) => {
-        const key = `${songId}|${line.time}|${line.text}`; // unique key
-        let newFavs;
+        const key = `${songId}|${line.time}|${line.text}`;
+        let newFavsKeys = [...favorites];
+
+        // Update DB
+        const savedDB = localStorage.getItem("lyric_favorites_db");
+        let db: FavoriteLine[] = savedDB ? JSON.parse(savedDB) : [];
+
         if (favorites.includes(key)) {
-            newFavs = favorites.filter(k => k !== key);
+            // Remove
+            newFavsKeys = newFavsKeys.filter(k => k !== key);
+            db = db.filter(f => `${f.songId}|${f.time}|${f.text}` !== key);
         } else {
-            newFavs = [...favorites, key];
+            // Add
+            newFavsKeys.push(key);
+            db.push({
+                id: key,
+                songId,
+                time: line.time,
+                text: line.text,
+                title,
+                artist,
+                // We don't have image passed here explicitly, but maybe we can? 
+                // For now, let's omit image or pass it in props if needed. 
+                // Wait, LyricsContainerProps doesn't have image.
+            });
         }
-        setFavorites(newFavs);
-        localStorage.setItem("lyric_favorites", JSON.stringify(newFavs));
+
+        setFavorites(newFavsKeys);
+        localStorage.setItem("lyric_favorites_db", JSON.stringify(db));
     };
 
     useEffect(() => {
-        // Find active line
-        // We want the last line where line.time <= progress
         const index = lines.findLastIndex((line) => line.time <= progress);
         setActiveIndex(index);
     }, [progress, lines]);
 
     useEffect(() => {
-        // Auto-scroll
         if (activeindex !== -1 && scrollRef.current) {
             const activeEl = scrollRef.current.children[activeindex] as HTMLElement;
             if (activeEl) {
@@ -100,14 +133,18 @@ export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsC
         }
     }, [activeindex]);
 
-    const handleTranslateToggle = async () => {
-        setShowTranslation(!showTranslation);
-        if (!showTranslation && Object.keys(translatedLines).length === 0) {
-            // Mock bulk translation or translate active lines on demand
-            // calling translateText for each line is expensive/slow for demo. 
-            // We will do it for the current window or just mock it.
-            // For prototype, let's translate visible lines?
-        }
+    const handleWordClick = async (e: React.MouseEvent, word: string) => {
+        e.stopPropagation(); // prevent seek
+        const rect = (e.target as HTMLElement).getBoundingClientRect();
+
+        setPopupWord(word);
+        setPopupPos({ x: rect.left, y: rect.bottom });
+        setPopupLoading(true);
+        setPopupData(null);
+
+        const data = await getWordMeaning(word, `Song: ${title} by ${artist}`);
+        setPopupData(data);
+        setPopupLoading(false);
     };
 
     // Fetch translation for active line if needed
@@ -124,7 +161,19 @@ export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsC
 
 
     return (
-        <div className="flex flex-col h-full max-h-[70vh] w-full max-w-2xl mx-auto items-center">
+        <div className="flex flex-col h-full max-h-[70vh] w-full max-w-2xl mx-auto items-center relative">
+
+            {popupWord && (
+                <WordPopup
+                    word={popupWord}
+                    meaning={popupData?.meaning}
+                    translation={popupData?.translation}
+                    position={popupPos}
+                    onClose={() => setPopupWord(null)}
+                    loading={popupLoading}
+                />
+            )}
+
             <div className="mb-4 flex gap-4">
                 <button
                     onClick={() => setShowTranslation(!showTranslation)}
@@ -139,6 +188,8 @@ export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsC
                     {lines.map((line, i) => {
                         const key = `${songId}|${line.time}|${line.text}`;
                         const isFav = favorites.includes(key);
+                        const words = line.text.split(" ");
+
                         return (
                             <div key={i} className="relative group flex items-center justify-center">
                                 <motion.div
@@ -146,7 +197,7 @@ export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsC
                                     animate={{
                                         opacity: i === activeindex ? 1 : 0.4,
                                         scale: i === activeindex ? 1.05 : 1,
-                                        color: i === activeindex ? "white" : "#a1a1aa" // zinc-400
+                                        color: i === activeindex ? "white" : "#a1a1aa"
                                     }}
                                     className={cn(
                                         "py-4 text-center cursor-pointer transition-all duration-300 w-full",
@@ -154,13 +205,23 @@ export function LyricsContainer({ syncedLyrics, title, artist, songId }: LyricsC
                                     )}
                                     onClick={() => seek(line.time)}
                                 >
-                                    <p>{line.text}</p>
+                                    <p>
+                                        {words.map((word, wIndex) => (
+                                            <span
+                                                key={wIndex}
+                                                className="hover:underline decoration-purple-500/50 hover:text-purple-300 transition-colors cursor-pointer mr-1.5"
+                                                onClick={(e) => handleWordClick(e, word)}
+                                            >
+                                                {word}
+                                            </span>
+                                        ))}
+                                    </p>
                                     {showTranslation && translatedLines[i] && (
                                         <p className="text-sm md:text-base text-purple-400 mt-1">{translatedLines[i]}</p>
                                     )}
                                 </motion.div>
 
-                                {/* Favorite Button (Visible on hover or if favored) */}
+                                {/* Favorite Button */}
                                 <button
                                     onClick={(e) => { e.stopPropagation(); toggleFavorite(line); }}
                                     className={cn(

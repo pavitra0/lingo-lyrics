@@ -1,19 +1,23 @@
 // lib/lingoClient.ts
-// Placeholder for Lingo.dev SDK integration
-// Documentation: lingo.dev/sdk
 
 export const translateText = async (text: string, targetLanguage: string = "es") => {
-    // TODO: Integrate actual Lingo.dev SDK
-    // For now, return a mock translation (or just the same text reversed/prefixed for testing)
-
-    // Real implementation would look like:
-    // import { Lingo } from "lingo-dev";
-    // const lingo = new Lingo(process.env.LINGO_API_KEY);
-    // return await lingo.translate(text, targetLanguage);
-
+    // Mock Delay
     return new Promise<string>((resolve) => {
         setTimeout(() => {
-            resolve(`[${targetLanguage}] ${text} (Translated)`);
+            resolve(`[${targetLanguage}] ${text}`);
         }, 200);
+    });
+};
+
+export const getWordMeaning = async (word: string, context: string) => {
+    // Mock Meaning
+    return new Promise<{ meaning: string; translation: string }>((resolve) => {
+        setTimeout(() => {
+            const cleanWord = word.replace(/[^a-zA-Z]/g, "");
+            resolve({
+                meaning: `Mock definition for "${cleanWord}": Used to express a specific concept in the song context.`,
+                translation: `Translated ${cleanWord}`
+            });
+        }, 300);
     });
 };
