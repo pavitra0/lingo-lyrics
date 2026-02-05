@@ -11,6 +11,7 @@ export interface Song {
     image: string;
     url: string; // Preview URL or Full URL
     duration?: number;
+    artistId?: string;
 }
 
 interface PlayerContextType {
@@ -56,27 +57,63 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const audioRef = useRef<HTMLAudioElement>(null);
 
-    const playSong = (song: Song) => {
-        // Normalize artist data if nested structure is present
-        let normalizedSong = { ...song };
-        const rawSong = song as any;
-        normalizedSong.artist = rawSong.artists?.primary[0]?.name;
+    const playSong = (song: any) => {
+        // Normalize raw API data to our Song interface
+        const normalizedSong: Song = {
+            id: song.id,
+            title: song.title || song.name || "Unknown Title", // Handle 'name' vs 'title'
+            artist: song.artist || "", // Will resolve below
+            album: song.album?.name || song.album || "Unknown Album",
+            image: "", // Will resolve below
+            url: song.url || "",
+            duration: typeof song.duration === 'string' ? parseInt(song.duration) : song.duration,
+            artistId: song.artistId || song.artists?.primary?.[0]?.id || undefined,
+        };
 
-        // Ensure artist is clean (no featuring, etc for consistent display if desired, 
-        // but here we just want to ensure it EXISTS for the player)
+        // 1. Resolve Artist
+        if (song.artists?.primary?.[0]?.name) {
+            normalizedSong.artist = song.artists.primary[0].name;
+        }
+        else if (!normalizedSong.artist) {
+            if (song.primaryArtists) normalizedSong.artist = song.primaryArtists;
+            else if (song.primary_artists) normalizedSong.artist = song.primary_artists;
+            else if (song.subtitle) normalizedSong.artist = song.subtitle;
+            else if (song.description) normalizedSong.artist = song.description;
+            else if (Array.isArray(song.artist)) normalizedSong.artist = song.artist[0];
+        }
+
+        // Final cleanup for artist
+        if (Array.isArray(normalizedSong.artist)) {
+            normalizedSong.artist = normalizedSong.artist[0];
+        }
+        if (typeof normalizedSong.artist !== 'string') {
+            normalizedSong.artist = String(normalizedSong.artist || "");
+        }
+
+        // 2. Resolve Image (JioSaavn returns array, we need string)
+        if (Array.isArray(song.image) && song.image.length > 0) {
+            // Take the last one (usually highest quality) or first
+            normalizedSong.image = song.image[song.image.length - 1].link || song.image[song.image.length - 1].url || "";
+        } else if (typeof song.image === 'string') {
+            normalizedSong.image = song.image;
+        }
+
+        console.log("Normalized Song for Player:", normalizedSong);
 
         setCurrentSong(normalizedSong);
         setIsPlaying(true);
 
         // Add to history
-        const newHistory = [song, ...history.filter(s => s.id !== song.id)].slice(0, 50);
+        const newHistory = [normalizedSong, ...history.filter(s => s.id !== normalizedSong.id)].slice(0, 50);
         setHistory(newHistory);
         localStorage.setItem("playedSongs", JSON.stringify(newHistory));
 
-        if (!queue.find(s => s.id === song.id)) {
-            setQueueState([song]);
-            getSongRecommendations(song.id).then(recs => {
-                // ... recs logic
+        if (!queue.find(s => s.id === normalizedSong.id)) {
+            setQueueState([normalizedSong]);
+            getSongRecommendations(normalizedSong.id).then(recs => {
+                // ... logic remains similar but we should probably normalize recs too if needed, 
+                // but existing logic manually maps recs so it might be fine.
+                // For now let's keep the existing recommendation logic but using normalizedSong.id
                 if (recs && recs.length > 0) {
                     const mappedRecs = recs.map(item => {
                         const highQualityImage = item.image[item.image.length - 1]?.url;
@@ -311,7 +348,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                 isLoading
             }}
         >
-            <audio ref={audioRef} src={currentSong?.url} />
+            <audio ref={audioRef} src={currentSong?.url} className="hidden" />
             {children}
         </PlayerContext.Provider>
     );

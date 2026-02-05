@@ -4,6 +4,7 @@ export interface JioSaavnSong {
     id: string;
     name: string;
     type: string;
+    artistId?: string; // Added for navigation
     album: {
         id: string;
         name: string;
@@ -87,6 +88,35 @@ export interface SearchResponse<T> {
     };
 }
 
+// Helper to normalize song data
+const formatSong = (song: any): JioSaavnSong => {
+    if (!song) return song;
+
+    // Map complex artists object to flat string if needed
+
+    // Map complex artists object to flat string if needed
+    // Map complex artists object to flat string if needed
+    if (song.artists) {
+        if (song.artists.primary) {
+            song.primaryArtists = song.artists.primary.map((a: any) => a.name).join(', ');
+            // Extract primary artist ID for linking
+            if (song.artists.primary.length > 0) {
+                song.artistId = song.artists.primary[0].id;
+            }
+        }
+        if (song.artists.featured) {
+            song.featuredArtists = song.artists.featured.map((a: any) => a.name).join(', ');
+        }
+    }
+
+
+    // Ensure image is array (API sometimes returns string or complex obj?)
+    // The current interface says { quality: string, url: string }[] but let's just leave it 
+    // as the API returns it, usually it's correct enough or we handle it in context.
+
+    return song as JioSaavnSong;
+};
+
 export const searchSongs = async (query: string, limit = 30) => {
     try {
         const response = await fetch(`${API_URL}/search/songs?query=${query}&limit=${limit}`);
@@ -94,7 +124,7 @@ export const searchSongs = async (query: string, limit = 30) => {
         if (!response.ok) {
             throw new Error(data.message || 'Failed to Fetch Song Data');
         }
-        return data.data.results as JioSaavnSong[];
+        return (data.data.results as any[]).map(formatSong);
     }
     catch (error) {
         console.log('API Error: ', error);
@@ -161,18 +191,7 @@ export const getSongById = async (id: string) => {
             songData = data.data;
         }
 
-        // Map the complex artist structure to the flat string format we use
-        if (songData.artists && typeof songData.artists === 'object' && !songData.primaryArtists) {
-            const primary = songData.artists.primary?.map((a: any) => a.name).join(', ') || '';
-            const featured = songData.artists.featured?.map((a: any) => a.name).join(', ') || '';
-            const all = songData.artists.all?.map((a: any) => a.name).join(', ') || '';
-
-            songData.primaryArtists = primary;
-            songData.featuredArtists = featured;
-            // Ensure other fields are present if needed
-        }
-
-        return songData as JioSaavnSong;
+        return formatSong(songData);
     } catch (error) {
         console.error("Error fetching song:", error);
         throw error;
@@ -185,6 +204,11 @@ export const getAlbumById = async (id: string) => {
         const data = await response.json();
         if (!response.ok) {
             throw new Error(data.message || 'Failed to Fetch Album Data');
+        }
+        // Normalize songs in album if needed, though album usually has flat structure.
+        // Let's assume album songs are fine or we can verify.
+        if (data.data && Array.isArray(data.data.songs)) {
+            data.data.songs = data.data.songs.map(formatSong);
         }
         return data.data as JioSaavnAlbum;
     }
@@ -202,6 +226,10 @@ export const getArtistById = async (id: string) => {
         if (!response.ok) {
             throw new Error(data.message || 'Failed to Fetch Artist Data');
         }
+        // Normalize top songs
+        if (data.data && Array.isArray(data.data.topSongs)) {
+            data.data.topSongs = data.data.topSongs.map(formatSong);
+        }
         return data.data as JioSaavnArtist;
     } catch (error) {
         console.error('API Error:', error);
@@ -215,6 +243,10 @@ export const getPlaylistById = async (id: string) => {
         const data = await response.json();
         if (!response.ok) {
             throw new Error(data.message || 'Failed to Fetch Playlist Data');
+        }
+        // Normalize songs in playlist
+        if (data.data && Array.isArray(data.data.songs)) {
+            data.data.songs = data.data.songs.map(formatSong);
         }
         return data.data as JioSaavnPlaylist;
     }
@@ -233,7 +265,7 @@ export const getSongRecommendations = async (id: string) => {
         if (!response.ok) {
             throw new Error(data.message || 'Failed to Fetch Recommendations');
         }
-        return data.data as JioSaavnSong[];
+        return (data.data as any[]).map(formatSong);
     }
     catch (error) {
         console.log('API Error: ', error);

@@ -7,6 +7,7 @@ import { getSyncedLyrics, LrcLibSong } from "@/lib/api/lyrics";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { LyricsContainer } from "@/components/Lyrics/LyricsContainer";
 import { SongList } from "@/components/Shared/SongList";
+import Link from "next/link";
 import Image from "next/image";
 
 export default function SongPage() {
@@ -60,28 +61,33 @@ export default function SongPage() {
                 console.log("Song Data for Lyrics (Full):", songData); // DEBUG
                 const title = songData.name;
 
-                // Defensive Artist Extraction
-                let artist = songData.primaryArtists?.split(',')[0];
+                // Defensive Artist Extraction (Match PlayerContext logic)
+                let artist = "";
+                const rawData = songData as any;
 
-                // Check for nested object if flat string is missing/empty
-                if (!artist) {
-                    console.log("Primary Artists string missing. Checking nested object...");
-                    const rawData = songData as any; // Cast to access 'artists'
-                    if (rawData.artists && typeof rawData.artists === 'object') {
-                        console.log("Found nested artists object:", rawData.artists);
-                        const primary = rawData.artists.primary;
-                        if (Array.isArray(primary) && primary.length > 0) {
-                            artist = primary[0].name;
-                            console.log("Extracted artist from nested object:", artist);
-                        } else {
-                            console.warn("Primary artists array is empty or invalid in nested object");
-                        }
-                    } else {
-                        console.warn("No nested 'artists' object found on songData");
-                    }
-                } else {
-                    console.log("Found flat primaryArtists:", artist);
+                // 1. Try nested object first
+                if (rawData.artists?.primary?.[0]?.name) {
+                    artist = rawData.artists.primary[0].name;
                 }
+
+                // 2. Fallbacks
+                if (!artist) {
+                    if (songData.primaryArtists) artist = songData.primaryArtists;
+                    // else if (songData.player_id) artist = songData.player_id; // Removed invalid property
+                    else if (rawData.primary_artists) artist = rawData.primary_artists;
+                    else if (rawData.subtitle) artist = rawData.subtitle;
+                    else if (rawData.description) artist = rawData.description;
+                    else if (Array.isArray(rawData.artist)) artist = rawData.artist[0];
+                }
+
+                // 3. Final cleanup
+                if (Array.isArray(artist)) artist = artist[0];
+                if (typeof artist !== 'string') artist = String(artist || "");
+
+                // Ensure we get the first main artist for lyrics
+                artist = artist.split(',')[0].split('&')[0].trim();
+
+                console.log("Extracted Artist for Page:", artist);
 
                 const album = songData.album?.name;
                 const duration = parseInt(songData.duration);
@@ -189,7 +195,15 @@ export default function SongPage() {
 
                     <div className="mt-8 text-center md:text-left w-full max-w-sm md:max-w-md">
                         <h1 className="text-3xl md:text-5xl font-extrabold leading-tight tracking-tight mb-3 drop-shadow-lg">{song.name}</h1>
-                        <p className="text-xl md:text-2xl text-zinc-200 font-semibold drop-shadow-md">{song.primaryArtists}</p>
+                        <p className="text-xl md:text-2xl text-zinc-200 font-semibold drop-shadow-md">
+                            {song.artistId ? (
+                                <Link href={`/artist/${song.artistId}`} className="hover:text-white hover:underline transition-colors">
+                                    {song.primaryArtists || (song as any).artist || (song as any).subtitle || "Unknown Artist"}
+                                </Link>
+                            ) : (
+                                song.primaryArtists || (song as any).artist || (song as any).subtitle || "Unknown Artist"
+                            )}
+                        </p>
                         <p className="text-sm text-zinc-400 mt-2 uppercase tracking-widest font-medium">{song.album?.name} • {song.year}</p>
                     </div>
                 </div>

@@ -1,23 +1,35 @@
-// lib/lingoClient.ts
+import axios from "axios";
 
-export const translateText = async (text: string, targetLanguage: string = "es") => {
-    // Mock Delay
-    return new Promise<string>((resolve) => {
-        setTimeout(() => {
-            resolve(`[${targetLanguage}] ${text}`);
-        }, 200);
-    });
+export const translateText = async (text: string, targetLanguage: string = "en") => {
+    try {
+        const { data } = await axios.post<{ translation: string }>("/api/translate", {
+            text,
+            target: targetLanguage,
+            type: "sentence"
+        });
+        return data.translation || text;
+    } catch (e) {
+        console.error("Translation failed", e);
+        return text; // Fallback to original
+    }
 };
 
 export const getWordMeaning = async (word: string, context: string) => {
-    // Mock Meaning
-    return new Promise<{ meaning: string; translation: string }>((resolve) => {
-        setTimeout(() => {
-            const cleanWord = word.replace(/[^a-zA-Z]/g, "");
-            resolve({
-                meaning: `Mock definition for "${cleanWord}": Used to express a specific concept in the song context.`,
-                translation: `Translated ${cleanWord}`
-            });
-        }, 300);
-    });
+    try {
+        const { data } = await axios.post<{ meaning: string; translation: string }>("/api/translate", {
+            text: word,
+            target: "en", // Always definition in English for now
+            type: "word"
+        });
+        return {
+            meaning: data.meaning || "No definition found",
+            translation: data.translation || word
+        };
+    } catch (e) {
+        console.error("Word meaning failed", e);
+        return {
+            meaning: "Could not fetch meaning",
+            translation: word
+        };
+    }
 };

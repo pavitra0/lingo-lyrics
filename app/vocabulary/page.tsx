@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Book, Trash2, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { speak } from "@/lib/utils";
 
 interface VocabWord {
     id: string;
@@ -82,7 +83,11 @@ export default function VocabularyPage() {
                                 </div>
                                 <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
                                     <span className="text-xs text-zinc-600">{new Date(item.date).toLocaleDateString()}</span>
-                                    <button className="text-zinc-500 hover:text-white transition">
+                                    <button
+                                        onClick={() => speak(item.word)}
+                                        className="text-zinc-500 hover:text-white transition"
+                                        title="Listen"
+                                    >
                                         <Volume2 size={16} />
                                     </button>
                                 </div>

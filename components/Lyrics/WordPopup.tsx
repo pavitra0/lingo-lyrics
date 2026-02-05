@@ -1,6 +1,7 @@
 import { X, Volume2, BookPlus, Check } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn, speak } from "@/lib/utils";
 
 interface WordPopupProps {
     word: string;
@@ -109,8 +110,11 @@ export function WordPopup({ word, meaning, translation, position, onClose, loadi
                     </div>
                 )}
 
-                {/* Mock Audio Pronunciation */}
-                <button className="mt-3 flex items-center gap-2 text-xs text-zinc-500 hover:text-white transition">
+                {/* Audio Pronunciation */}
+                <button
+                    onClick={() => speak(word)}
+                    className="mt-3 flex items-center gap-2 text-xs text-zinc-500 hover:text-white transition"
+                >
                     <Volume2 size={14} />
                     Pronounce
                 </button>

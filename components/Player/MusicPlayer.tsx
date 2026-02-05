@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Mic2, LayoutList, GripHorizontal, CloudCog, ChevronDown, MoreHorizontal, Shuffle, Repeat, Maximize2, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import Image from "next/image";
 import { QueueList } from "./QueueList";
 import { useState } from "react";
@@ -46,27 +47,16 @@ export function MusicPlayer() {
 
             console.log("MusicPlayer: Fetching lyrics for:", currentSong);
 
-            // formatting the artist name to remove featuring artists and take the first one
-            // formatting the artist name to remove featuring artists and take the first one
-            let artistName = currentSong.artists.primary[0].name;
-            const rawSong = currentSong as any;
+            // Artist name is now normalized in PlayerContext, so we can trust currentSong.artist
+            let artistName = currentSong.artist;
 
+            // Safety fallback just in case (e.g. if currentSong structure was bypassed)
             if (!artistName) {
-                if (rawSong.primaryArtists) artistName = rawSong.primaryArtists;
-                else if (rawSong.primary_artists) artistName = rawSong.primary_artists; // snake_case support
-                else if (rawSong.subtitle) artistName = rawSong.subtitle; // Common fallback in UI
-                else if (rawSong.description) artistName = rawSong.description;
-                else if (rawSong.artists?.primary?.[0]?.name) artistName = rawSong.artists.primary[0].name;
-                else if (Array.isArray(rawSong.artist)) artistName = rawSong.artist[0]; // Handle array case
+                const rawSong = currentSong as any;
+                if (rawSong.artists?.primary?.[0]?.name) artistName = rawSong.artists.primary[0].name;
             }
 
-            // Safety: Ensure it's a string
-            if (Array.isArray(artistName)) {
-                artistName = artistName[0];
-            }
-            if (typeof artistName !== 'string') {
-                artistName = String(artistName || "");
-            }
+            artistName = String(artistName || "");
 
             // Cleanup: Take first artist if comma separated or has '&'
             if (artistName) {
@@ -168,7 +158,10 @@ export function MusicPlayer() {
 
                 <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-12 p-8 z-10 max-w-7xl mx-auto w-full overflow-hidden">
                     {/* Art / Lyrics Area */}
-                    <div className="relative w-full aspect-square max-w-md md:max-w-xl shadow-2xl rounded-xl overflow-hidden border border-white/5 bg-zinc-900/50 flex items-center justify-center">
+                    <div className={cn(
+                        "relative rounded-xl overflow-hidden flex items-center justify-center transition-all duration-500",
+                        showLyrics ? "w-full h-full max-w-5xl aspect-auto" : "w-full aspect-square max-w-md md:max-w-xl shadow-2xl border border-white/5 bg-zinc-900/50"
+                    )}>
                         {!showLyrics ? (
                             currentSong.image && <Image src={currentSong.image} alt={currentSong.title} fill className="object-cover" />
                         ) : (
@@ -183,64 +176,68 @@ export function MusicPlayer() {
                     </div>
 
                     {/* Info & Controls */}
-                    <div className="w-full max-w-md flex flex-col gap-8">
-                        <div>
-                            <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{currentSong.title}</h2>
-                            <p className="text-xl text-zinc-400">{currentSong.artist}</p>
-                        </div>
-
-                        {/* Progress */}
-                        <div className="flex flex-col gap-2 group/prog">
-                            <div
-                                className="h-1 bg-white/20 rounded-full cursor-pointer relative"
-                                onClick={(e) => {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    const pos = (e.clientX - rect.left) / rect.width;
-                                    seek(pos * duration);
-                                }}
-                            >
-                                <div className="absolute top-0 left-0 h-full bg-white rounded-full group-hover/prog:bg-purple-500 transition-colors" style={{ width: `${progressPercent}%` }} />
-                                <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover/prog:opacity-100 transition-opacity" style={{ left: `${progressPercent}%`, marginLeft: '-8px' }} />
+                    {!showLyrics && (
+                        <div className="w-full max-w-md flex flex-col gap-8">
+                            <div>
+                                <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{currentSong.title}</h2>
+                                <p className="text-xl text-zinc-400">
+                                    {currentSong.artist}
+                                </p>
                             </div>
-                            <div className="flex justify-between text-xs text-zinc-500 font-medium">
-                                <span>{formatTime(progress)}</span>
-                                <span>{formatTime(duration)}</span>
-                            </div>
-                        </div>
 
-                        {/* Controls */}
-                        <div className="flex items-center justify-between">
-                            <button onClick={toggleShuffle} className={cn("p-2", shuffle ? "text-purple-500" : "text-zinc-400")}>
-                                <Shuffle size={24} />
-                            </button>
-                            <div className="flex items-center gap-6">
-                                <button onClick={playPrevious} className="text-white hover:text-purple-400 transition"><SkipBack size={36} fill="currentColor" /></button>
-                                <button onClick={togglePlay} className="w-20 h-20 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                                    {isPlaying ? <Pause size={36} fill="currentColor" /> : <Play size={36} fill="currentColor" className="ml-1" />}
+                            {/* Progress */}
+                            <div className="flex flex-col gap-2 group/prog">
+                                <div
+                                    className="h-1 bg-white/20 rounded-full cursor-pointer relative"
+                                    onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const pos = (e.clientX - rect.left) / rect.width;
+                                        seek(pos * duration);
+                                    }}
+                                >
+                                    <div className="absolute top-0 left-0 h-full bg-white rounded-full group-hover/prog:bg-purple-500 transition-colors" style={{ width: `${progressPercent}%` }} />
+                                    <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover/prog:opacity-100 transition-opacity" style={{ left: `${progressPercent}%`, marginLeft: '-8px' }} />
+                                </div>
+                                <div className="flex justify-between text-xs text-zinc-500 font-medium">
+                                    <span>{formatTime(progress)}</span>
+                                    <span>{formatTime(duration)}</span>
+                                </div>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="flex items-center justify-between">
+                                <button onClick={toggleShuffle} className={cn("p-2", shuffle ? "text-purple-500" : "text-zinc-400")}>
+                                    <Shuffle size={24} />
                                 </button>
-                                <button onClick={playNext} className="text-white hover:text-purple-400 transition"><SkipForward size={36} fill="currentColor" /></button>
+                                <div className="flex items-center gap-6">
+                                    <button onClick={playPrevious} className="text-white hover:text-purple-400 transition"><SkipBack size={36} fill="currentColor" /></button>
+                                    <button onClick={togglePlay} className="w-20 h-20 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                                        {isPlaying ? <Pause size={36} fill="currentColor" /> : <Play size={36} fill="currentColor" className="ml-1" />}
+                                    </button>
+                                    <button onClick={playNext} className="text-white hover:text-purple-400 transition"><SkipForward size={36} fill="currentColor" /></button>
+                                </div>
+                                <button onClick={toggleRepeat} className={cn("p-2", repeat !== 'none' ? "text-purple-500" : "text-zinc-400")}>
+                                    <Repeat size={24} />
+                                </button>
                             </div>
-                            <button onClick={toggleRepeat} className={cn("p-2", repeat !== 'none' ? "text-purple-500" : "text-zinc-400")}>
-                                <Repeat size={24} />
-                            </button>
-                        </div>
 
-                        {/* Actions */}
-                        <div className="flex justify-between items-center px-4">
-                            <button onClick={toggleLike} className={cn("transition transform active:scale-90", likedSongs.includes(currentSong.id) ? "text-red-500" : "text-zinc-400")}>
-                                <Heart size={28} fill={likedSongs.includes(currentSong.id) ? "currentColor" : "none"} />
-                            </button>
-                            {/* Volume */}
-                            <div className="flex items-center gap-3">
-                                <Volume2 size={20} className="text-zinc-400" />
-                                <input
-                                    type="range" min={0} max={1} step={0.01} value={volume}
-                                    onChange={(e) => setVolume(Number(e.target.value))}
-                                    className="w-24 h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
-                                />
+                            {/* Actions */}
+                            <div className="flex justify-between items-center px-4">
+                                <button onClick={toggleLike} className={cn("transition transform active:scale-90", likedSongs.includes(currentSong.id) ? "text-red-500" : "text-zinc-400")}>
+                                    <Heart size={28} fill={likedSongs.includes(currentSong.id) ? "currentColor" : "none"} />
+                                </button>
+                                {/* Volume */}
+                                <div className="flex items-center gap-3">
+                                    <Volume2 size={20} className="text-zinc-400" />
+                                    <input
+                                        type="range" min={0} max={1} step={0.01} value={volume}
+                                        onChange={(e) => setVolume(Number(e.target.value))}
+                                        className="w-24 h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
@@ -284,7 +281,13 @@ export function MusicPlayer() {
                             <div className="flex flex-col justify-center min-w-0">
                                 <h3 className="font-medium text-white text-sm truncate leading-tight group-hover/info:underline">{currentSong.title}</h3>
                                 <div className="flex items-center text-xs md:text-sm text-zinc-400 truncate">
-                                    <span className="truncate">{currentSong.artist}</span>
+                                    {currentSong.artistId ? (
+                                        <Link href={`/artist/${currentSong.artistId}`} className="truncate hover:text-white hover:underline" onClick={(e) => e.stopPropagation()}>
+                                            {currentSong.artist}
+                                        </Link>
+                                    ) : (
+                                        <span className="truncate">{currentSong.artist}</span>
+                                    )}
                                 </div>
                             </div>
                         </div>

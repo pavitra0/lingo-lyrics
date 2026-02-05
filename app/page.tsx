@@ -87,9 +87,18 @@ export default function Home() {
   };
 
   const normalizeItem = (item: any, type: "song" | "album" | "artist" | "playlist" | "chart") => {
-    const image = item.image?.[item.image.length - 1]?.link || item.image?.[item.image.length - 1]?.url || (typeof item.image === 'string' ? item.image : "") || "";
-    const title = item.title || item.name;
-    const subtitle = item.subtitle || item.description || item.header_desc || item.artist || item.primaryArtists || "";
+    let image = "";
+    if (Array.isArray(item.image)) {
+      image = item.image[item.image.length - 1]?.link || item.image[item.image.length - 1]?.url || "";
+    } else if (typeof item.image === 'string') {
+      image = item.image;
+    }
+
+    // Fallback if image is still missing/empty
+    if (!image && item.image) image = String(item.image);
+
+    const title = item.title || item.name || "Unknown Title";
+    const subtitle = item.subtitle || item.description || item.header_desc || item.artist || item.primaryArtists || "Unknown Artist";
 
     return { id: item.id, title, subtitle, image, type, original: item };
   };
@@ -101,6 +110,7 @@ export default function Home() {
       <HorizontalScroll title={title}>
         {items.map((item, idx) => {
           const data = normalizeItem(item, type);
+          if (!data.image) return null; // Skip items without valid image
           return (
             <SongCard
               key={`${data.id}-${idx}`}
@@ -193,6 +203,9 @@ export default function Home() {
                 <div className="grid grid-rows-4 grid-flow-col gap-x-6 gap-y-3 min-w-max">
                   {recentlyPlayed.slice(0, 16).map((item, idx) => {
                     const data = normalizeItem(item, "song");
+                    // Filter out broken items
+                    if (!data.image || !data.title || data.title === "Unknown Title") return null;
+
                     return (
                       <CompactSongCard
                         key={`${data.id}-${idx}r`}
