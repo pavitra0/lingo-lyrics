@@ -4,9 +4,9 @@
   <p><strong>Listen. Learn. Connect.</strong></p>
   <p>The first music streaming platform that turns every song into a language lesson.</p>
 
-  [![Demo Video](https://img.shields.io/badge/Watch-Demo_Video-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](YOUR_YOUTUBE_LINK_HERE)
+  [![Watch the Demo](public/home.png)](https://youtu.be/zQcwzZFDLzY)
   
-  <a href="https://lingo-lyrics.vercel.app">View Live Demo</a>
+  <a href="https://lingo-lyrics.vercel.app" target="_blank">View Live Demo</a>
 </div>
 
 ---
