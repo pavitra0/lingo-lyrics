@@ -6,13 +6,47 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 
-export function speak(text: string, lang: string = 'en-US') {
+const LOCALE_MAP: Record<string, string> = {
+  "hi": "hi-IN",
+  "pa": "pa-IN",
+  "gu": "gu-IN",
+  "bn": "bn-IN",
+  "ta": "ta-IN",
+  "te": "te-IN",
+  "kn": "kn-IN",
+  "ml": "ml-IN",
+  "ja": "ja-JP",
+  "ko": "ko-KR",
+  "zh": "zh-CN",
+  "es": "es-ES",
+  "fr": "fr-FR",
+  "de": "de-DE",
+  "en": "en-US",
+};
+
+export function speak(text: string, lang?: string) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
   window.speechSynthesis.cancel();
+
+  // 1. Detect language if not provided or default
+  let detectedCode = lang;
+  if (!detectedCode || detectedCode === 'en-US') {
+    detectedCode = detectLanguage(text);
+  }
+
+  // 2. Map to BCP 47 tag
+  const locale = LOCALE_MAP[detectedCode] || "en-US";
+
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang;
+  utterance.lang = locale;
   utterance.rate = 0.9;
+
+  // 3. Try to set voice explicitly (helps on some browsers)
+  const voices = window.speechSynthesis.getVoices();
+  const voice = voices.find(v => v.lang === locale || v.lang.startsWith(detectedCode));
+  if (voice) utterance.voice = voice;
+
   window.speechSynthesis.speak(utterance);
 }
 
