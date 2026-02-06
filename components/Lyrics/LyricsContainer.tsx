@@ -360,13 +360,12 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                             );
                         })}
                     </div>
+                ) : (
+                    <div className="flex items-center justify-center h-full text-zinc-500">
+                        No lyrics available
                     </div>
-            ) : (
-            <div className="flex items-center justify-center h-full text-zinc-500">
-                No lyrics available
-            </div>
                 )}
-        </div>
+            </div>
         </div >
     );
 }
