@@ -224,21 +224,12 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
         setPopupData(null);
 
         try {
-            // Detect language of the selection explicitly
-            // If the song is already detected as non-en, prefer that, but if the selection is strongly another script, use that.
-            // Our detectLanguage utility is script-based, so it's safer for specific scripts.
-            const selectionLang = detectLanguage(selectedText);
+            // "Auto detect the lang and translate"
+            // We pass undefined for source, handled by API/SDK auto-detection
+            const translation = await translateText(selectedText, targetLang);
 
-            // If detected selection is 'en' but song is 'ja' (and text is actually english words in japanese song), use song lang?
-            // BUT here the issue is opposite: text is Japanese but song is 'en'.
-            // So if selectionLang != 'en', definitely use it.
-            // If selectionLang == 'en', fall back to detectedSourceLang.
-
-            const finalSourceLang = selectionLang !== "en" ? selectionLang : detectedSourceLang;
-
-            const translation = await translateText(selectedText, targetLang, finalSourceLang);
             setPopupData({
-                meaning: "", // No definition for sentences
+                meaning: "",
                 translation: translation
             });
         } catch (e) {

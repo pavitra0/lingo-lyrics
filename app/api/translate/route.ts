@@ -19,7 +19,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "No text provided" }, { status: 400 });
         }
 
-        const targetLang = target || 'en';
+        const targetLang = target
         // Don't default to 'en', let SDK handle auto-detection or treat as unknown
         const sourceLang = source;
 
