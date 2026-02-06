@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
-import { cn } from "@/lib/utils";
+import { cn, detectLanguage } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { translateText, getWordMeaning } from "@/lib/lingoClient";
-import { Heart } from "lucide-react";
+import { Heart, ChevronDown, BookPlus } from "lucide-react";
 import { WordPopup } from "./WordPopup";
 
 interface LrcLine {
@@ -18,6 +18,7 @@ interface LyricsContainerProps {
     artist: string;
     title: string;
     songId: string;
+    language?: string;
 }
 
 const parseLrc = (lrc: string): LrcLine[] => {
@@ -41,7 +42,7 @@ const parseLrc = (lrc: string): LrcLine[] => {
     return result;
 };
 
-export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Unknown Artist", songId }: LyricsContainerProps) {
+export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Unknown Artist", songId, language = "en" }: LyricsContainerProps) {
     const { progress, seek } = usePlayer();
     const [lines, setLines] = useState<LrcLine[]>([]);
     const [activeindex, setActiveIndex] = useState(-1);
@@ -57,6 +58,28 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
     const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
     const [popupLoading, setPopupLoading] = useState(false);
 
+    // Track in-flight requests to prevent duplicate fetches
+    const fetchingRef = useRef(new Set<string>());
+
+    // Language State
+    const [targetLang, setTargetLang] = useState("en"); // Default default
+
+    // Load preference on mount
+    useEffect(() => {
+        const savedLang = localStorage.getItem("targetLang_pref");
+        if (savedLang) setTargetLang(savedLang);
+    }, []);
+
+    const languages = [
+        { code: "en", name: "English" },
+        { code: "hi", name: "Hindi" },
+        { code: "es", name: "Spanish" },
+        { code: "fr", name: "French" },
+        { code: "de", name: "German" },
+        { code: "ja", name: "Japanese" },
+        { code: "ko", name: "Korean" }
+    ];
+
     useEffect(() => {
         if (syncedLyrics) {
             setLines(parseLrc(syncedLyrics));
@@ -64,6 +87,33 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
             setLines([]);
         }
     }, [syncedLyrics]);
+
+    // Detect Source Language from Lyrics Content (Overrides metadata if script prevents ambiguity)
+    const [detectedSourceLang, setDetectedSourceLang] = useState<string>(language);
+
+    useEffect(() => {
+        if (lines.length > 0) {
+            // Check the first few lines that have text
+            const sampleText = lines.slice(0, 5).map(l => l.text).join(" ");
+            const detected = detectLanguage(sampleText);
+
+            // Should we trust detection? Yes, if it finds a specific script.
+            if (detected !== "en") {
+                console.log(`Auto-detected language from lyrics: ${detected}`);
+                setDetectedSourceLang(detected);
+            } else {
+                setDetectedSourceLang(language);
+            }
+        }
+    }, [lines, language]);
+
+    // Manual override for source language
+    const handleSourceLangChange = (code: string) => {
+        setDetectedSourceLang(code);
+        // Clear cache for current target to force re-fetch
+        setTranslatedLines({});
+        fetchingRef.current.clear();
+    };
 
 
     interface FavoriteLine {
@@ -130,7 +180,10 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
     useEffect(() => {
         if (activeindex !== -1 && scrollRef.current && lines.length > 0) {
-            const activeEl = scrollRef.current.children[activeindex] as HTMLElement;
+            // Target the inner wrapper's children (the lines)
+            // scrollRef.current is the scrolling container
+            // scrollRef.current.firstElementChild is the py-[50vh] wrapper
+            const activeEl = scrollRef.current.firstElementChild?.children[activeindex] as HTMLElement;
             if (activeEl) {
                 activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
             }
@@ -151,17 +204,38 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
         setPopupLoading(false);
     };
 
-    // Fetch translation for active line if needed
+    // Clear fetching ref when language changes
     useEffect(() => {
-        if (showTranslation && activeindex !== -1 && !translatedLines[activeindex] && lines.length > 0) {
-            const line = lines[activeindex];
-            if (line) {
-                translateText(line.text).then(trans => {
-                    setTranslatedLines(prev => ({ ...prev, [activeindex]: trans }));
-                });
-            }
+        fetchingRef.current.clear();
+    }, [targetLang]);
+
+    // Fetch translation for active line AND next line (prefetch)
+    useEffect(() => {
+        if (showTranslation && activeindex !== -1 && lines.length > 0) {
+            const indicesToFetch = [activeindex, activeindex + 1];
+
+            indicesToFetch.forEach(index => {
+                if (index < lines.length) {
+                    const line = lines[index];
+                    // Create a unique key for the request: index + language
+                    const requestKey = `${index}-${targetLang}`;
+
+                    if (line && line.text && !translatedLines[index] && !fetchingRef.current.has(requestKey)) {
+                        fetchingRef.current.add(requestKey);
+                        // Use detectedSourceLang instead of metadata language
+                        translateText(line.text, targetLang, detectedSourceLang)
+                            .then(trans => {
+                                setTranslatedLines(prev => ({ ...prev, [index]: trans }));
+                            })
+                            .catch(err => {
+                                console.error("Translation failed for line", index, err);
+                                fetchingRef.current.delete(requestKey); // Allow retry
+                            });
+                    }
+                }
+            });
         }
-    }, [activeindex, showTranslation, lines]);
+    }, [activeindex, showTranslation, lines, targetLang, translatedLines]);
 
 
     return (
@@ -178,14 +252,70 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                 />
             )}
 
-            <div className="mb-4 flex gap-4">
+            <div className="mb-4 flex gap-4 relative z-50">
                 <button
                     onClick={() => setShowTranslation(!showTranslation)}
-                    className={cn("px-4 py-1 rounded-full text-sm border transition", showTranslation ? "bg-white text-black border-white" : "text-zinc-400 border-zinc-600")}
+                    className={cn("px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border transition-all flex items-center gap-2", showTranslation ? "bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-zinc-200")}
                 >
-                    ABC / अ
+                    <BookPlus size={14} />
+                    {showTranslation ? "Translation ON" : "Translate"}
                 </button>
+
+                {showTranslation && (
+                    <div className="relative group/lang">
+                        <button className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition-all flex items-center gap-2 bg-black/40 backdrop-blur-md">
+                            {languages.find(l => l.code === targetLang)?.name}
+                            <ChevronDown size={12} />
+                        </button>
+
+                        <div className="absolute top-full left-0 mt-2 w-32 bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-2xl opacity-0 invisible group-hover/lang:opacity-100 group-hover/lang:visible transition-all transform origin-top scale-95 group-hover/lang:scale-100 flex flex-col z-50">
+                            {languages.map(lang => (
+                                <button
+                                    key={lang.code}
+                                    onClick={() => {
+                                        setTargetLang(lang.code);
+                                        localStorage.setItem("targetLang_pref", lang.code); // Save Preference
+                                        // Clear cache to re-translate
+                                        setTranslatedLines({});
+                                        fetchingRef.current.clear(); // Explicitly clear any pending
+                                    }}
+                                    className={cn("px-4 py-2 text-left text-xs font-medium hover:bg-white/10 transition-colors", targetLang === lang.code ? "text-purple-400" : "text-zinc-400")}
+                                >
+                                    {lang.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
+
+
+            {/* Source Language Override (Visible when Translation ON) */}
+            {
+                showTranslation && (
+                    <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
+                        <span>Translating from:</span>
+                        <div className="relative group/source">
+                            <button className="flex items-center gap-1 font-medium text-zinc-300 hover:text-white transition">
+                                {languages.find(l => l.code === detectedSourceLang)?.name || detectedSourceLang}
+                                <ChevronDown size={10} />
+                            </button>
+
+                            <div className="absolute top-full left-0 mt-1 w-32 bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover/source:opacity-100 group-hover/source:visible transition-all z-50 max-h-48 overflow-y-auto">
+                                {languages.map(lang => (
+                                    <button
+                                        key={lang.code}
+                                        onClick={() => handleSourceLangChange(lang.code)}
+                                        className={cn("w-full px-3 py-2 text-left text-xs hover:bg-white/10 transition-colors", detectedSourceLang === lang.code ? "text-purple-400" : "text-zinc-400")}
+                                    >
+                                        {lang.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             <div className="flex-1 overflow-y-auto w-full px-4 no-scrollbar mask-gradient" ref={scrollRef} style={{ maskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)" }}>
                 {lines.length > 0 ? (
@@ -200,10 +330,10 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                     <motion.div
                                         initial={{ opacity: 0.5, scale: 0.95, filter: "blur(2px)" }}
                                         animate={{
-                                            opacity: i === activeindex ? 1 : 0.3,
-                                            scale: i === activeindex ? 1.05 : 0.98,
+                                            opacity: i === activeindex ? 1 : 0.6, // Increased opacity for better visibility
+                                            scale: i === activeindex ? 1.05 : 1,
                                             color: i === activeindex ? "#ffffff" : "#a1a1aa",
-                                            filter: i === activeindex ? "blur(0px)" : "blur(1.5px)"
+                                            filter: "blur(0px)" // Removed blur completely
                                         }}
                                         className={cn(
                                             "py-4 text-center cursor-pointer transition-all duration-300 w-full origin-center select-none",
@@ -251,6 +381,6 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

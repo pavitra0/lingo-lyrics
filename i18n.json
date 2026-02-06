@@ -1,0 +1,24 @@
+{
+    "$schema": "https://raw.githubusercontent.com/lingodotdev/lingo.dev/main/schema/i18n.json",
+    "version": "1.0",
+    "locale": {
+        "source": "en",
+        "targets": [
+            "hi",
+            "es",
+            "fr",
+            "de",
+            "ja",
+            "ko"
+        ]
+    },
+    "buckets": [
+        {
+            "parser": "json",
+            "mode": "dictionary",
+            "include": [
+                "messages/[locale].json"
+            ]
+        }
+    ]
+}

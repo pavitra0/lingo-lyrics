@@ -1,0 +1,16 @@
+{
+    "Navigation": {
+        "home": "Home",
+        "explore": "Explore",
+        "library": "Library",
+        "favorites": "Favorites",
+        "history": "History",
+        "vocabulary": "Vocabulary"
+    },
+    "Home": {
+        "trending": "Trending Now",
+        "top_charts": "Top Charts",
+        "new_releases": "New Releases",
+        "quick_picks": "Quick Picks"
+    }
+}

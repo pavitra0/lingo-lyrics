@@ -1,0 +1,16 @@
+{
+    "Navigation": {
+        "home": "होम",
+        "explore": "एक्सप्लोर",
+        "library": "लाइब्रेरी",
+        "favorites": "पसंदीदा",
+        "history": "इतिहास",
+        "vocabulary": "शब्दावली"
+    },
+    "Home": {
+        "trending": "अभी ट्रेंडिंग",
+        "top_charts": "टॉप चार्ट्स",
+        "new_releases": "नई रिलीज़",
+        "quick_picks": "क्विक पिक्स"
+    }
+}

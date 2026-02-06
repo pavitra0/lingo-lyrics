@@ -7,7 +7,7 @@ import { getSyncedLyrics, LrcLibSong } from "@/lib/api/lyrics";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { LyricsContainer } from "@/components/Lyrics/LyricsContainer";
 import { SongList } from "@/components/Shared/SongList";
-import Link from "next/link";
+import { Link } from "@/i18n/routing";
 import Image from "next/image";
 
 export default function SongPage() {

@@ -1,0 +1,16 @@
+{
+    "Navigation": {
+        "home": "ホーム",
+        "explore": "探索",
+        "library": "ライブラリ",
+        "favorites": "お気に入り",
+        "history": "履歴",
+        "vocabulary": "単語帳"
+    },
+    "Home": {
+        "trending": "トレンド",
+        "top_charts": "トップチャート",
+        "new_releases": "ニューリリース",
+        "quick_picks": "クイックピック"
+    }
+}

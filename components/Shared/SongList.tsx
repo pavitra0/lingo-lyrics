@@ -29,6 +29,7 @@ export function SongList({ songs, onPlay }: SongListProps) {
             image: highQualityImage || "",
             url: highQualityAudio || "",
             duration: parseInt(song.duration),
+            language: song.language,
         });
     };
 

@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Mic2, LayoutList, GripHorizontal, CloudCog, ChevronDown, MoreHorizontal, Shuffle, Repeat, Maximize2, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
+import { Link } from "@/i18n/routing";
 import Image from "next/image";
 import { QueueList } from "./QueueList";
 import { useState } from "react";
@@ -166,11 +166,13 @@ export function MusicPlayer() {
                             currentSong.image && <Image src={currentSong.image} alt={currentSong.title} fill className="object-cover" />
                         ) : (
                             <LyricsContainer
+                                key={currentSong.id}
                                 syncedLyrics={lyricsData?.syncedLyrics || ""}
                                 plainLyrics={lyricsData?.plainLyrics}
                                 artist={currentSong.artist}
                                 title={currentSong.title}
                                 songId={currentSong.id}
+                                language={currentSong.language}
                             />
                         )}
                     </div>
@@ -180,9 +182,15 @@ export function MusicPlayer() {
                         <div className="w-full max-w-md flex flex-col gap-8">
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{currentSong.title}</h2>
-                                <p className="text-xl text-zinc-400">
-                                    {currentSong.artist}
-                                </p>
+                                <div className="text-xl text-zinc-400">
+                                    {currentSong.artistId ? (
+                                        <Link href={`/artist/${currentSong.artistId}`} className="hover:text-white hover:underline transition">
+                                            {currentSong.artist}
+                                        </Link>
+                                    ) : (
+                                        currentSong.artist
+                                    )}
+                                </div>
                             </div>
 
                             {/* Progress */}

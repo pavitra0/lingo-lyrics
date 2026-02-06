@@ -1,0 +1,16 @@
+{
+    "Navigation": {
+        "home": "Startseite",
+        "explore": "Entdecken",
+        "library": "Bibliothek",
+        "favorites": "Favoriten",
+        "history": "Verlauf",
+        "vocabulary": "Vokabeln"
+    },
+    "Home": {
+        "trending": "Jetzt im Trend",
+        "top_charts": "Top-Charts",
+        "new_releases": "Neuerscheinungen",
+        "quick_picks": "Schnellauswahl"
+    }
+}

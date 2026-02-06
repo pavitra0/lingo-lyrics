@@ -12,6 +12,7 @@ export interface Song {
     url: string; // Preview URL or Full URL
     duration?: number;
     artistId?: string;
+    language?: string;
 }
 
 interface PlayerContextType {
@@ -57,8 +58,33 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const audioRef = useRef<HTMLAudioElement>(null);
 
+    // Helper to map API languages to ISO codes
+    const getLanguageCode = (lang: string): string => {
+        console.log("Detecting Language for:", lang); // DEBUG
+        const map: Record<string, string> = {
+            "hindi": "hi",
+            "english": "en",
+            "punjabi": "pa",
+            "tamil": "ta",
+            "telugu": "te",
+            "marathi": "mr",
+            "gujarati": "gu",
+            "bengali": "bn",
+            "kannada": "kn",
+            "bhojpuri": "bho",
+            "malayalam": "ml",
+            "urdu": "ur",
+            "haryanvi": "hi", // Close enough fallback
+            "rajasthani": "hi", // Close enough fallback
+            "odia": "or",
+            "assamese": "as"
+        };
+        return map[lang?.toLowerCase()] || "en";
+    };
+
     const playSong = (song: any) => {
         // Normalize raw API data to our Song interface
+        console.log("Raw Song Data in playSong:", song); // DEBUG
         const normalizedSong: Song = {
             id: song.id,
             title: song.title || song.name || "Unknown Title", // Handle 'name' vs 'title'
@@ -68,6 +94,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             url: song.url || "",
             duration: typeof song.duration === 'string' ? parseInt(song.duration) : song.duration,
             artistId: song.artistId || song.artists?.primary?.[0]?.id || undefined,
+            language: getLanguageCode(song.language),
         };
 
         // 1. Resolve Artist
@@ -125,6 +152,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                             image: highQualityImage || "",
                             url: highQualityAudio || "",
                             duration: parseInt(item.duration),
+                            language: getLanguageCode(item.language),
                         };
                     });
                     setQueueState(prev => [...prev, ...mappedRecs]);

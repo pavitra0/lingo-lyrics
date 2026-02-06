@@ -1,0 +1,16 @@
+{
+    "Navigation": {
+        "home": "Inicio",
+        "explore": "Explorar",
+        "library": "Biblioteca",
+        "favorites": "Favoritos",
+        "history": "Historial",
+        "vocabulary": "Vocabulario"
+    },
+    "Home": {
+        "trending": "Tendencias",
+        "top_charts": "Listas de Éxitos",
+        "new_releases": "Nuevos Lanzamientos",
+        "quick_picks": "Selección Rápida"
+    }
+}

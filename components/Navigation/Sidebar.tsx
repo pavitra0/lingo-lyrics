@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/routing";
 import { Home, Compass, Library, Search, Heart, BookPlus, History as HistoryIcon } from "lucide-react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 
 export function Sidebar() {
+    const t = useTranslations("Navigation");
     return (
         <aside className="w-64 h-full bg-black hidden md:flex flex-col p-4 flex-shrink-0 border-r border-white/5">
             {/* Search / Logo Area */}
@@ -18,28 +20,28 @@ export function Sidebar() {
             <nav className="flex flex-col gap-1">
                 <Link href="/" className="flex items-center gap-4 px-4 py-3 rounded-md text-white hover:bg-[#121212] transition font-medium">
                     <Home size={24} />
-                    <span>Home</span>
+                    <span>{t("home")}</span>
                 </Link>
                 <Link href="/explore" className="flex items-center gap-4 px-4 py-3 rounded-md text-zinc-400 hover:bg-[#121212] hover:text-white transition font-medium">
                     <Compass size={24} />
-                    <span>Explore</span>
+                    <span>{t("explore")}</span>
                 </Link>
                 <Link href="#" className="flex items-center gap-4 px-4 py-3 rounded-md text-zinc-400 hover:bg-[#121212] hover:text-white transition font-medium">
                     <Library size={24} />
-                    <span>Library</span>
+                    <span>{t("library")}</span>
                 </Link>
                 <div className="mt-4 pt-4 border-t border-white/5">
                     <Link href="/vocabulary" className="flex items-center gap-4 px-4 py-3 rounded-md text-zinc-400 hover:bg-[#121212] hover:text-white transition font-medium">
                         <BookPlus size={24} />
-                        <span>Vocabulary</span>
+                        <span>{t("vocabulary")}</span>
                     </Link>
                     <Link href="/history" className="flex items-center gap-4 px-4 py-3 rounded-md text-zinc-400 hover:bg-[#121212] hover:text-white transition font-medium">
                         <HistoryIcon size={24} />
-                        <span>History</span>
+                        <span>{t("history")}</span>
                     </Link>
                     <Link href="/favorites" className="flex items-center gap-4 px-4 py-3 rounded-md text-zinc-400 hover:bg-[#121212] hover:text-white transition font-medium">
                         <Heart size={24} />
-                        <span>Favorites</span>
+                        <span>{t("favorites")}</span>
                     </Link>
                 </div>
             </nav>

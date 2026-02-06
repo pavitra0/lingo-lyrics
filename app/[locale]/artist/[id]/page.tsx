@@ -6,7 +6,7 @@ import { getArtistById, JioSaavnArtist } from "@/lib/api/jiosaavn";
 import { SongList } from "@/components/Shared/SongList";
 import Image from "next/image";
 import { CheckCircle } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/i18n/routing";
 
 export default function ArtistPage() {
     const params = useParams();

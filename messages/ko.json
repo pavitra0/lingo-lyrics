@@ -1,0 +1,16 @@
+{
+    "Navigation": {
+        "home": "홈",
+        "explore": "탐색",
+        "library": "라이브러리",
+        "favorites": "즐겨찾기",
+        "history": "기록",
+        "vocabulary": "단어장"
+    },
+    "Home": {
+        "trending": "인기 급상승",
+        "top_charts": "인기 차트",
+        "new_releases": "최신 발매",
+        "quick_picks": "빠른 선택"
+    }
+}

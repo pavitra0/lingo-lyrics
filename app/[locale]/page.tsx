@@ -2,16 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { searchSongs, searchAlbums, searchArtists, searchPlaylists, getHomeModules, JioSaavnSong, JioSaavnAlbum, JioSaavnArtist, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import Image from "next/image";
 import SectionHeader from "@/components/Home/SectionHeader";
 import HorizontalScroll from "@/components/Home/HorizontalScroll";
 import SongCard from "@/components/Home/SongCard";
 import CompactSongCard from "@/components/Home/CompactSongCard";
+import { useTranslations } from "next-intl";
 
 export default function Home() {
+  const t = useTranslations("Home");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{
     songs: JioSaavnSong[];
@@ -25,6 +28,11 @@ export default function Home() {
   const [recentlyPlayed, setRecentlyPlayed] = useState<any[]>([]);
   const { playSong } = usePlayer();
   const router = useRouter();
+
+  // Mood Chips State
+  const [activeChip, setActiveChip] = useState<string | null>(null);
+  const [moodResults, setMoodResults] = useState<JioSaavnPlaylist[]>([]);
+  const [moodLoading, setMoodLoading] = useState(false);
 
   // Mock Chips
   const chips = ["Energize", "Relax", "Workout", "Commute", "Focus"];
@@ -71,6 +79,26 @@ export default function Home() {
     setLoading(false);
   };
 
+  const handleChipClick = async (chip: string) => {
+    if (activeChip === chip) {
+      setActiveChip(null);
+      setMoodResults([]);
+      return;
+    }
+
+    setActiveChip(chip);
+    setMoodLoading(true);
+    try {
+      // Fetch playlists for the mood
+      const playlists = await searchPlaylists(`${chip} songs`);
+      setMoodResults(playlists);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setMoodLoading(false);
+    }
+  };
+
   const handlePlay = (item: JioSaavnSong | any) => {
     // Handle both JioSaavnSong and stored history item structure
     const image = item.image && Array.isArray(item.image) ? item.image[item.image.length - 1]?.url : (typeof item.image === 'string' ? item.image : "");
@@ -83,6 +111,7 @@ export default function Home() {
       image: image || "",
       url: downloadUrl || "",
       duration: typeof item.duration === 'string' ? parseInt(item.duration) : item.duration,
+      language: item.language,
     });
   };
 
@@ -156,7 +185,16 @@ export default function Home() {
           {/* Chips */}
           <div className="flex gap-3 overflow-x-auto no-scrollbar w-full pb-2 sticky top-0 bg-black/95 py-2 z-20 -mx-4 px-4 md:mx-0 md:px-0">
             {chips.map(chip => (
-              <button key={chip} className="px-4 py-1.5 rounded-lg bg-[#212121] hover:bg-[#333] hover:text-white transition whitespace-nowrap text-sm font-medium border border-white/10 text-zinc-300">
+              <button
+                key={chip}
+                onClick={() => handleChipClick(chip)}
+                className={cn(
+                  "px-4 py-1.5 rounded-lg transition whitespace-nowrap text-sm font-medium border",
+                  activeChip === chip
+                    ? "bg-white text-black border-white"
+                    : "bg-[#212121] hover:bg-[#333] hover:text-white border-white/10 text-zinc-300"
+                )}
+              >
                 {chip}
               </button>
             ))}
@@ -198,7 +236,7 @@ export default function Home() {
           {/* Quick Picks / Start Radio Section (Grid Layout) */}
           {recentlyPlayed.length > 0 && (
             <section className="mb-0">
-              <SectionHeader title="Quick picks" />
+              <SectionHeader title={t("quick_picks")} />
               <div className="flex overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
                 <div className="grid grid-rows-4 grid-flow-col gap-x-6 gap-y-3 min-w-max">
                   {recentlyPlayed.slice(0, 16).map((item, idx) => {
@@ -220,20 +258,31 @@ export default function Home() {
             </section>
           )}
 
+          {/* Mood Results */}
+          {activeChip && (
+            <div className="mb-0">
+              {moodLoading ? (
+                <div className="flex items-center gap-2 text-zinc-400 py-4"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Loading {activeChip} mixes...</div>
+              ) : (
+                renderSection(`${activeChip} Mixes`, moodResults, "playlist")
+              )}
+            </div>
+          )}
+
           {/* Mapping homeData to sections */}
           {homeData && (
             <>
               {/* Mixed for you - using Trending Songs for now */}
-              {homeData.trending && renderSection("Mixed for you", homeData.trending.songs, "song")}
+              {homeData.trending && renderSection(t("trending"), homeData.trending.songs, "song")}
 
               {/* From the community - using Playlists/Albums if available, or just Charts */}
-              {homeData.charts && renderSection("From the community", homeData.charts, "chart")}
+              {homeData.charts && renderSection(t("top_charts"), homeData.charts, "chart")}
 
               {/* Recommended New Releases */}
-              {homeData.albums && renderSection("New releases", homeData.albums, "album")}
+              {homeData.albums && renderSection(t("new_releases"), homeData.albums, "album")}
 
               {/* Trending Albums */}
-              {homeData.trending && renderSection("Trending Albums", homeData.trending.albums, "album")}
+              {homeData.trending && renderSection(t("trending"), homeData.trending.albums, "album")}
             </>
           )}
         </div>

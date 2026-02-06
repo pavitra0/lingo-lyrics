@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { searchPlaylists, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
 const GENRES = ["For You", "Hindi", "English", "Punjabi", "Tamil", "Telugu", "Marathi", "Gujarati", "Bengali", "Kannada", "Bhojpuri", "Haryanvi", "Rajasthani"];
