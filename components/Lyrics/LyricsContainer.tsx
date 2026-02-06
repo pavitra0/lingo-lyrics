@@ -107,13 +107,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
         }
     }, [lines, language]);
 
-    // Manual override for source language
-    const handleSourceLangChange = (code: string) => {
-        setDetectedSourceLang(code);
-        // Clear cache for current target to force re-fetch
-        setTranslatedLines({});
-        fetchingRef.current.clear();
-    };
+
 
 
     interface FavoriteLine {
@@ -199,7 +193,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
         setPopupLoading(true);
         setPopupData(null);
 
-        const data = await getWordMeaning(word, `Song: ${title} by ${artist}`);
+        const data = await getWordMeaning(word, `Song: ${title} by ${artist}`, detectedSourceLang);
         setPopupData(data);
         setPopupLoading(false);
     };
@@ -291,31 +285,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
 
             {/* Source Language Override (Visible when Translation ON) */}
-            {
-                showTranslation && (
-                    <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
-                        <span>Translating from:</span>
-                        <div className="relative group/source">
-                            <button className="flex items-center gap-1 font-medium text-zinc-300 hover:text-white transition">
-                                {languages.find(l => l.code === detectedSourceLang)?.name || detectedSourceLang}
-                                <ChevronDown size={10} />
-                            </button>
 
-                            <div className="absolute top-full left-0 mt-1 w-32 bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover/source:opacity-100 group-hover/source:visible transition-all z-50 max-h-48 overflow-y-auto">
-                                {languages.map(lang => (
-                                    <button
-                                        key={lang.code}
-                                        onClick={() => handleSourceLangChange(lang.code)}
-                                        className={cn("w-full px-3 py-2 text-left text-xs hover:bg-white/10 transition-colors", detectedSourceLang === lang.code ? "text-purple-400" : "text-zinc-400")}
-                                    >
-                                        {lang.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
 
             <div className="flex-1 overflow-y-auto w-full px-4 no-scrollbar mask-gradient" ref={scrollRef} style={{ maskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)" }}>
                 {lines.length > 0 ? (

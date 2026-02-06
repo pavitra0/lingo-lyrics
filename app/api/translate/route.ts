@@ -22,6 +22,12 @@ export async function POST(request: Request) {
         const targetLang = target || 'en';
         const sourceLang = source || 'en';
 
+        // Guard: If source and target are the same, return original text
+        if (targetLang === sourceLang) {
+            console.log("Source and target are the same, returning original text.");
+            return NextResponse.json({ translation: text });
+        }
+
         // Lingo.dev (AI) Translation
         let translation = text;
         let meaning = "";

@@ -15,11 +15,12 @@ export const translateText = async (text: string, targetLanguage: string = "en",
     }
 };
 
-export const getWordMeaning = async (word: string, context: string) => {
+export const getWordMeaning = async (word: string, context: string, sourceLanguage: string = "en") => {
     try {
         const { data } = await axios.post<{ meaning: string; translation: string }>("/api/translate", {
             text: word,
-            target: "en", // Always definition in English for now
+            target: "en", // Keep target as English for now (or make dynamic if needed)
+            source: sourceLanguage,
             type: "word"
         });
         return {
