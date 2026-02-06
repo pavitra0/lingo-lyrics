@@ -3,7 +3,11 @@
   <h1>LingoLyrics 🎵</h1>
   <p><strong>Listen. Learn. Connect.</strong></p>
   <p>The first music streaming platform that turns every song into a language lesson.</p>
-  [![Watch the Demo]](/public/demo.mp4)(https://youtu.be/zQcwzZFDLzY)
+
+  👉 **[Watch the demo on YouTube](https://www.youtube.com/watch?v=zQcwzZFDLzY)**
+
+https://github.com/user-attachments/assets/d642cbd7-1791-4389-9847-610c799317fb
+  
   
   <a href="https://lingo-lyrics.vercel.app">View Live Demo</a>
 </div>
