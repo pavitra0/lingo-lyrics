@@ -42,20 +42,31 @@ export const getSyncedLyrics = async (trackName: string, artistName: string, alb
 
         console.log(`Fetching lyrics for: ${trackStrict} by ${cleanArtist}`);
 
-        // 1. Try exact match with cleaned data (using Axios params, which handles encoding)
+        // 0. Try exact match with RAW data (Priority #1: "Fetch with this title")
         try {
-            // User reference suggests: artist_name & track_name ONLY. 
-            // We'll try that first as it might be more lenient than including duration/album.
+            console.log(`Trying exact match with RAW data: ${trackName} by ${artistName}`);
             const { data } = await axios.get<LrcLibSong>(`${BASE_URL}/get`, {
                 params: {
-                    track_name: trackStrict,
-                    artist_name: cleanArtist,
-                    // duration: duration, // Removing duration based on user suggestion to rely on name strictness
+                    track_name: trackName,
+                    artist_name: artistName,
                 },
             });
             return data;
         } catch (e) {
-            console.warn("Exact match failed, trying search...");
+            console.warn("Exact match with raw data failed.");
+        }
+
+        // 1. Try exact match with cleaned data
+        try {
+            const { data } = await axios.get<LrcLibSong>(`${BASE_URL}/get`, {
+                params: {
+                    track_name: trackStrict,
+                    artist_name: cleanArtist,
+                },
+            });
+            return data;
+        } catch (e) {
+            console.warn("Exact match with cleaned data failed.");
         }
 
         // 2. Fallback to Search with Cleaned Metadata
@@ -65,8 +76,7 @@ export const getSyncedLyrics = async (trackName: string, artistName: string, alb
             return bestFit;
         }
 
-        // 3. Ultimate Fallback: Search with Original Metadata (if different)
-        // This handles cases where cleaning removed critical info (e.g., specific subtitle) or accents mattered
+        // 3. Fallback: Search with Original Metadata
         if (trackName !== trackStrict || artistName !== cleanArtist) {
             console.log("Cleaned search failed, trying original metadata...");
             const rawSearchResults = await searchLyrics(`${trackName} ${artistName}`);
@@ -74,6 +84,30 @@ export const getSyncedLyrics = async (trackName: string, artistName: string, alb
                 const bestFit = rawSearchResults.find(s => Math.abs(s.duration - (duration || 0)) < 5) || rawSearchResults[0];
                 return bestFit;
             }
+        }
+
+        // 4. Final Fallback: Translate Title & Search (User Request: "if doesnt fetch then translate")
+        try {
+            console.log("Refining search with English translation...");
+            const { data: config } = await axios.get('/api/translate', {
+                params: {
+                    text: trackName,
+                    target: 'en',
+                    source: 'auto'
+                }
+            });
+
+            const translatedTitle = config.translation;
+            if (translatedTitle && translatedTitle !== trackName) {
+                console.log(`Translated title: "${trackName}" -> "${translatedTitle}"`);
+                const translatedSearchResults = await searchLyrics(`${translatedTitle} ${artistName}`);
+                if (translatedSearchResults && translatedSearchResults.length > 0) {
+                    const bestFit = translatedSearchResults.find(s => Math.abs(s.duration - (duration || 0)) < 5) || translatedSearchResults[0];
+                    return bestFit;
+                }
+            }
+        } catch (translateError) {
+            console.warn("Translation fallback failed:", translateError);
         }
 
         return null;
