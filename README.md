@@ -3,9 +3,9 @@
   <h1>LingoLyrics 🎵</h1>
   <p><strong>Listen. Learn. Connect.</strong></p>
   <p>The first music streaming platform that turns every song into a language lesson.</p>
-  [![Watch the Demo](https://img.youtube.com/vi/zQcwzZFDLzY/maxresdefault.jpg)](https://youtu.be/zQcwzZFDLzY)
+  [![Watch the Demo]](/public/demo.mp4)(https://youtu.be/zQcwzZFDLzY)
   
-  <a href="https://lingolyrics.vercel.app">View Live Demo</a>
+  <a href="https://lingo-lyrics.vercel.app">View Live Demo</a>
 </div>
 
 ---
@@ -50,8 +50,6 @@ Built with the bleeding edge of modern web tech:
 |:---:|:---:|
 | <img src="public/song.png" alt="Player" width="400"/> | <img src="public/vocabulary.png" alt="Vocabulary" width="400"/> |
 
-*(Note: Add screenshots to a `public/screenshots` folder)*
-
 ---
 
 ## 🏃‍♂️ Getting Started
@@ -82,5 +80,5 @@ Built with the bleeding edge of modern web tech:
 ---
 
 <div align="center">
-  Made with ❤️ by Team LingoLyrics
+  Made with ❤️ by pavitra0
 </div>
