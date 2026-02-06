@@ -9,7 +9,7 @@
 https://github.com/user-attachments/assets/d642cbd7-1791-4389-9847-610c799317fb
   
   
-  <a href="https://lingo-lyrics.vercel.app">View Live Demo</a>
+  <a href="https://lingo-lyrics.vercel.app" target="_blank">View Live Demo</a>
 </div>
 
 ---
