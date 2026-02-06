@@ -18,6 +18,7 @@ const cleanString = (str: string) => {
     if (!str) return "";
     return str
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+        .normalize("NFC") // Re-compose to proper characters (Fix for Korean/Hangul)
         .replace(/\(.*\)/g, "") // Remove (...)
         .replace(/\[.*\]/g, "") // Remove [...]
         .replace(/-.*remaster.*/i, "") // Remove "- 2009 Remaster" etc
@@ -57,12 +58,22 @@ export const getSyncedLyrics = async (trackName: string, artistName: string, alb
             console.warn("Exact match failed, trying search...");
         }
 
-        // 2. Fallback to Search
+        // 2. Fallback to Search with Cleaned Metadata
         const searchResults = await searchLyrics(`${trackStrict} ${cleanArtist}`);
         if (searchResults && searchResults.length > 0) {
-            // Find best fit (closest duration)
             const bestFit = searchResults.find(s => Math.abs(s.duration - (duration || 0)) < 5) || searchResults[0];
             return bestFit;
+        }
+
+        // 3. Ultimate Fallback: Search with Original Metadata (if different)
+        // This handles cases where cleaning removed critical info (e.g., specific subtitle) or accents mattered
+        if (trackName !== trackStrict || artistName !== cleanArtist) {
+            console.log("Cleaned search failed, trying original metadata...");
+            const rawSearchResults = await searchLyrics(`${trackName} ${artistName}`);
+            if (rawSearchResults && rawSearchResults.length > 0) {
+                const bestFit = rawSearchResults.find(s => Math.abs(s.duration - (duration || 0)) < 5) || rawSearchResults[0];
+                return bestFit;
+            }
         }
 
         return null;
