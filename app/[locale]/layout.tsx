@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LyricLingo",
+  title: "LingoLyrics",
   description: "Global music with synced lyrics",
 };
 

@@ -328,7 +328,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: currentSong.title,
                 artist: currentSong.artist,
-                album: currentSong.album || "Musify",
+                album: currentSong.album || "LingoLyrics",
                 artwork: [
                     { src: currentSong.image, sizes: "512x512", type: "image/jpeg" },
                     { src: currentSong.image, sizes: "96x96", type: "image/jpeg" },

@@ -12,9 +12,9 @@ export function Sidebar() {
             {/* Search / Logo Area */}
             <div className="flex items-center gap-3 mb-8 px-2 py-2">
                 <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-                    <span className="text-black font-bold text-xs">M</span>
+                    <span className="text-black font-bold text-xs">L</span>
                 </div>
-                <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">Musify</span>
+                <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">LingoLyrics</span>
             </div>
 
             <nav className="flex flex-col gap-1">
