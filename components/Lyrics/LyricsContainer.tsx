@@ -80,13 +80,21 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
         { code: "ko", name: "Korean" }
     ];
 
+    const [isSynced, setIsSynced] = useState(false);
+
     useEffect(() => {
         if (syncedLyrics) {
             setLines(parseLrc(syncedLyrics));
+            setIsSynced(true);
+        } else if (plainLyrics) {
+            // Parse plain lyrics into lines with dummy time
+            setLines(plainLyrics.split('\n').map(text => ({ time: 0, text: text.trim() })).filter(l => l.text));
+            setIsSynced(false);
         } else {
             setLines([]);
+            setIsSynced(false);
         }
-    }, [syncedLyrics]);
+    }, [syncedLyrics, plainLyrics]);
 
     // Detect Source Language from Lyrics Content (Overrides metadata if script prevents ambiguity)
     const [detectedSourceLang, setDetectedSourceLang] = useState<string>(language);
@@ -166,14 +174,14 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
     };
 
     useEffect(() => {
-        if (lines.length > 0) {
+        if (lines.length > 0 && isSynced) {
             const index = lines.findLastIndex((line) => line.time <= progress);
             setActiveIndex(index);
         }
-    }, [progress, lines]);
+    }, [progress, lines, isSynced]);
 
     useEffect(() => {
-        if (activeindex !== -1 && scrollRef.current && lines.length > 0) {
+        if (activeindex !== -1 && scrollRef.current && lines.length > 0 && isSynced) {
             // Target the inner wrapper's children (the lines)
             // scrollRef.current is the scrolling container
             // scrollRef.current.firstElementChild is the py-[50vh] wrapper
@@ -182,7 +190,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                 activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
             }
         }
-    }, [activeindex, lines.length]);
+    }, [activeindex, lines.length, isSynced]);
 
     const handleWordClick = async (e: React.MouseEvent, word: string) => {
         e.stopPropagation(); // prevent seek
@@ -205,8 +213,19 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
     // Fetch translation for active line AND next line (prefetch)
     useEffect(() => {
-        if (showTranslation && activeindex !== -1 && lines.length > 0) {
-            const indicesToFetch = [activeindex, activeindex + 1];
+        if (showTranslation && lines.length > 0) {
+            let indicesToFetch: number[] = [];
+
+            if (isSynced && activeindex !== -1) {
+                indicesToFetch = [activeindex, activeindex + 1];
+            } else if (!isSynced) {
+                // For plain lyrics, maybe fetch visible? 
+                // Alternatively, just fetch all incrementally or rely on user scroll?
+                // For now, let's just fetch the first 10 lines to start, or maybe all?
+                // Fetching ALL might be expensive. Let's fetch as they come into view?
+                // Implementing observer is complex. Let's just fetch keys 0-20 for now as a "good enough" start for plain lyrics
+                indicesToFetch = Array.from({ length: 20 }, (_, i) => i);
+            }
 
             indicesToFetch.forEach(index => {
                 if (index < lines.length) {
@@ -300,16 +319,16 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                     <motion.div
                                         initial={{ opacity: 0.5, scale: 0.95, filter: "blur(2px)" }}
                                         animate={{
-                                            opacity: i === activeindex ? 1 : 0.6, // Increased opacity for better visibility
-                                            scale: i === activeindex ? 1.05 : 1,
-                                            color: i === activeindex ? "#ffffff" : "#a1a1aa",
+                                            opacity: isSynced ? (i === activeindex ? 1 : 0.6) : 1, // Full opacity for plain lyrics
+                                            scale: isSynced && i === activeindex ? 1.05 : 1,
+                                            color: isSynced && i === activeindex ? "#ffffff" : (isSynced ? "#a1a1aa" : "#e4e4e7"), // Lighter gray for plain lyrics
                                             filter: "blur(0px)" // Removed blur completely
                                         }}
                                         className={cn(
                                             "py-4 text-center cursor-pointer transition-all duration-300 w-full origin-center select-none",
-                                            i === activeindex ? "font-bold text-2xl md:text-4xl leading-tight" : "text-lg md:text-xl font-medium"
+                                            isSynced && i === activeindex ? "font-bold text-2xl md:text-4xl leading-tight" : "text-lg md:text-xl font-medium"
                                         )}
-                                        onClick={() => seek(line.time)}
+                                        onClick={() => isSynced && seek(line.time)}
                                     >
                                         <p>
                                             {words.map((word, wIndex) => (
@@ -341,16 +360,13 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                             );
                         })}
                     </div>
-                ) : plainLyrics ? (
-                    <div className="min-h-full flex flex-col items-center justify-center py-24 text-center text-lg md:text-xl text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                        {plainLyrics}
                     </div>
-                ) : (
-                    <div className="flex items-center justify-center h-full text-zinc-500">
-                        No lyrics available
-                    </div>
-                )}
+            ) : (
+            <div className="flex items-center justify-center h-full text-zinc-500">
+                No lyrics available
             </div>
+                )}
+        </div>
         </div >
     );
 }
