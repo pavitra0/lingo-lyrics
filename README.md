@@ -3,9 +3,7 @@
   <h1>LingoLyrics 🎵</h1>
   <p><strong>Listen. Learn. Connect.</strong></p>
   <p>The first music streaming platform that turns every song into a language lesson.</p>
-
-  [![Demo Video](https://img.shields.io/badge/Watch-Demo_Video-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](YOUR_YOUTUBE_LINK_HERE)
-  
+<iframe width="560" height="315" src="https://www.youtube.com/embed/zQcwzZFDLzY?si=fzlKrvuQQTnDX5eH&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
   <a href="https://lingo-lyrics.vercel.app">View Live Demo</a>
 </div>
 
@@ -35,7 +33,6 @@ Built with the bleeding edge of modern web tech:
 *   **Framework**: [Next.js 15 (App Router)](https://nextjs.org/)
 *   **Styling**: [Tailwind CSS](https://tailwindcss.com/) + Glassmorphism
 *   **Animations**: [Framer Motion](https://www.framer.com/motion/)
-*   **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
 *   **Translation AI**: [Lingo.dev SDK](https://lingo.dev/) & [Google Translate API](https://cloud.google.com/translate)
 *   **Music API**: Custom JioSaavn Wrapper
 *   **Search Intelligence**: Invidious API + DuckDuckGo Fallback
