@@ -19,6 +19,7 @@ interface LyricsContainerProps {
     title: string;
     songId: string;
     language?: string;
+    isLoading?: boolean;
 }
 
 const parseLrc = (lrc: string): LrcLine[] => {
@@ -42,7 +43,7 @@ const parseLrc = (lrc: string): LrcLine[] => {
     return result;
 };
 
-export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Unknown Artist", songId, language = "en" }: LyricsContainerProps) {
+export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Unknown Artist", songId, language = "en", isLoading = false }: LyricsContainerProps) {
     const { progress, seek } = usePlayer();
     const [lines, setLines] = useState<LrcLine[]>([]);
     const [activeindex, setActiveIndex] = useState(-1);
@@ -395,6 +396,11 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                 </div>
                             );
                         })}
+                    </div>
+                ) : isLoading ? (
+                    <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
+                        <div className="w-8 h-8 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                        <span className="text-sm font-medium animate-pulse">Fetching lyrics...</span>
                     </div>
                 ) : (
                     <div className="flex items-center justify-center h-full text-zinc-500">

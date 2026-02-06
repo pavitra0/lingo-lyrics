@@ -31,16 +31,38 @@ export default function Home() {
   const router = useRouter();
 
   // Mood Chips State
-  const [activeChip, setActiveChip] = useState<string | null>(null);
+  const [activeChip, setActiveChip] = useState<string | null>("Energize");
   const [moodResults, setMoodResults] = useState<JioSaavnPlaylist[]>([]);
   const [moodLoading, setMoodLoading] = useState(false);
 
-  // Mock Chips
-  const chips = ["Energize", "Relax", "Workout", "Commute", "Focus", "Pop"];
+  // Expanded Chips
+  const chips = ["Energize", "Relax", "Workout", "Party", "Focus", "Romance", "Sleep", "Retro", "Sad", "Jazz", "Commute"];
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch mood data when activeChip changes
+  useEffect(() => {
+    const fetchMoodData = async () => {
+      if (!activeChip) {
+        setMoodResults([]);
+        return;
+      }
+
+      setMoodLoading(true);
+      try {
+        const playlists = await searchPlaylists(`${activeChip} songs`);
+        setMoodResults(playlists);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setMoodLoading(false);
+      }
+    };
+
+    fetchMoodData();
+  }, [activeChip]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -109,24 +131,15 @@ export default function Home() {
     executeSearch(query);
   };
 
-  const handleChipClick = async (chip: string) => {
+  const handleChipClick = (chip: string) => {
     if (activeChip === chip) {
-      setActiveChip(null);
-      setMoodResults([]);
+      // Allow deselecting? Or maybe keep it always selected like YouTube Music? 
+      // User asked for "pre selected", usually implies one is always active.
+      // But let's allow toggle off to return to default state if we had one.
+      // For now, let's allow clicking same chip to do nothing or re-fetch.
       return;
     }
-
     setActiveChip(chip);
-    setMoodLoading(true);
-    try {
-      // Fetch playlists for the mood
-      const playlists = await searchPlaylists(`${chip} songs`);
-      setMoodResults(playlists);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setMoodLoading(false);
-    }
   };
 
   const handlePlay = (item: JioSaavnSong | any) => {
@@ -205,10 +218,7 @@ export default function Home() {
       {!query && (
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-6">
-            {/* Profile Pic Placeholder - Match YTM style */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
-              PB
-            </div>
+
             <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{getGreeting()}</h1>
           </div>
 

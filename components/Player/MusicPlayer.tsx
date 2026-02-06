@@ -23,6 +23,7 @@ export function MusicPlayer() {
     const [likedSongs, setLikedSongs] = useState<string[]>([]); // Keep IDs for UI state
     const [lyricsData, setLyricsData] = useState<LrcLibSong | null>(null);
     const [showLyrics, setShowLyrics] = useState(false);
+    const [lyricsLoading, setLyricsLoading] = useState(false);
 
     useEffect(() => {
         // Load initial state
@@ -44,6 +45,8 @@ export function MusicPlayer() {
         const fetchLyrics = async () => {
             // Only fetch if lyrics view is active
             if (!showLyrics) return;
+
+            setLyricsLoading(true);
 
             console.log("MusicPlayer: Fetching lyrics for:", currentSong);
 
@@ -82,6 +85,8 @@ export function MusicPlayer() {
                 setLyricsData(data);
             } catch (error) {
                 console.error("Failed to fetch lyrics", error);
+            } finally {
+                setLyricsLoading(false);
             }
         };
 
@@ -173,6 +178,7 @@ export function MusicPlayer() {
                                 title={currentSong.title}
                                 songId={currentSong.id}
                                 language={currentSong.language}
+                                isLoading={lyricsLoading}
                             />
                         )}
                     </div>
