@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const translateText = async (text: string, targetLanguage: string = "en", sourceLanguage: string = "en") => {
+export const translateText = async (text: string, targetLanguage: string = "en", sourceLanguage?: string) => {
     try {
         const { data } = await axios.post<{ translation: string }>("/api/translate", {
             text,

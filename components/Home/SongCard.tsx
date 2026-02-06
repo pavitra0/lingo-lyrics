@@ -32,7 +32,7 @@ export default function SongCard({
             onClick={onClick}
         >
             <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900 shadow-md">
-                {image ? (
+                {image && (image.startsWith("http") || image.startsWith("/")) ? (
                     <Image
                         src={image}
                         alt={title}

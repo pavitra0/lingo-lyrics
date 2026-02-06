@@ -206,6 +206,48 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
         setPopupLoading(false);
     };
 
+    const handleMouseUp = async () => {
+        const selection = window.getSelection();
+        if (!selection || selection.toString().trim().length === 0) return;
+
+        const selectedText = selection.toString().trim();
+
+        // If it's a very short selection (like a accidental drag or single char), ignore?
+        // Let's assume user intent if length > 0.
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        setPopupWord(selectedText);
+        setPopupPos({ x: rect.left + rect.width / 2, y: rect.bottom }); // Center popup
+        setPopupLoading(true);
+        setPopupData(null);
+
+        try {
+            // Detect language of the selection explicitly
+            // If the song is already detected as non-en, prefer that, but if the selection is strongly another script, use that.
+            // Our detectLanguage utility is script-based, so it's safer for specific scripts.
+            const selectionLang = detectLanguage(selectedText);
+
+            // If detected selection is 'en' but song is 'ja' (and text is actually english words in japanese song), use song lang?
+            // BUT here the issue is opposite: text is Japanese but song is 'en'.
+            // So if selectionLang != 'en', definitely use it.
+            // If selectionLang == 'en', fall back to detectedSourceLang.
+
+            const finalSourceLang = selectionLang !== "en" ? selectionLang : detectedSourceLang;
+
+            const translation = await translateText(selectedText, targetLang, finalSourceLang);
+            setPopupData({
+                meaning: "", // No definition for sentences
+                translation: translation
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setPopupLoading(false);
+        }
+    };
+
     // Clear fetching ref when language changes
     useEffect(() => {
         fetchingRef.current.clear();
@@ -252,7 +294,10 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
 
     return (
-        <div className="flex flex-col h-full max-h-[70vh] w-full max-w-2xl mx-auto items-center relative">
+        <div
+            className="flex flex-col h-full max-h-[70vh] w-full max-w-2xl mx-auto items-center relative"
+            onMouseUp={handleMouseUp}
+        >
 
             {popupWord && (
                 <WordPopup

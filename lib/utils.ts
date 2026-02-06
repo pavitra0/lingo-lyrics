@@ -47,5 +47,14 @@ export function detectLanguage(text: string): string {
   // Malayalam
   if (/[\u0D00-\u0D7F]/.test(sample)) return "ml";
 
+  // Japanese (Hiragana/Katakana/Kanji)
+  if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(sample)) return "ja";
+
+  // Korean (Hangul)
+  if (/[\uAC00-\uD7AF]/.test(sample)) return "ko";
+
+  // Chinese (Han)
+  if (/[\u4E00-\u9FFF]/.test(sample)) return "zh";
+
   return "en"; // Default fallback
 }

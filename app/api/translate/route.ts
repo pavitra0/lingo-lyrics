@@ -20,10 +20,11 @@ export async function POST(request: Request) {
         }
 
         const targetLang = target || 'en';
-        const sourceLang = source || 'en';
+        // Don't default to 'en', let SDK handle auto-detection or treat as unknown
+        const sourceLang = source;
 
-        // Guard: If source and target are the same, return original text
-        if (targetLang === sourceLang) {
+        // Guard: Only if BOTH are known and identical
+        if (sourceLang && targetLang === sourceLang) {
             console.log("Source and target are the same, returning original text.");
             return NextResponse.json({ translation: text });
         }
@@ -33,10 +34,12 @@ export async function POST(request: Request) {
         let meaning = "";
 
         try {
-            console.log(`Translating "${text}" from ${sourceLang} to ${targetLang}`); // Debug log
+            console.log(`Translating "${text}" from ${sourceLang || 'AUTO'} to ${targetLang}`); // Debug log
             // Lingo.dev SDK uses localizeText
+            // Pass undefined for sourceLocale to trigger auto-detection (if supported) 
+            // or let generic model handle it.
             translation = await lingo.localizeText(text, {
-                sourceLocale: sourceLang,
+                sourceLocale: sourceLang, // Can be undefined
                 targetLocale: targetLang
             });
         } catch (err) {

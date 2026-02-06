@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { searchSongs, searchAlbums, searchArtists, searchPlaylists, getHomeModules, JioSaavnSong, JioSaavnAlbum, JioSaavnArtist, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
+import { getSearchSuggestions } from "@/lib/api/suggestions";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { useRouter } from "@/i18n/routing";
 import Image from "next/image";
@@ -35,7 +36,29 @@ export default function Home() {
   const [moodLoading, setMoodLoading] = useState(false);
 
   // Mock Chips
-  const chips = ["Energize", "Relax", "Workout", "Commute", "Focus"];
+  const chips = ["Energize", "Relax", "Workout", "Commute", "Focus", "Pop"];
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setQuery(val);
+
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+    searchTimeout.current = setTimeout(async () => {
+      if (val.trim().length > 1) {
+        const data = await getSearchSuggestions(val);
+        setSuggestions(data);
+        setShowSuggestions(true);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300);
+  };
 
   useEffect(() => {
     const initHome = async () => {
@@ -60,23 +83,30 @@ export default function Home() {
     return "Good Evening";
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) {
+  const executeSearch = async (searchQuery: string) => {
+    if (!searchQuery.trim()) {
       setResults({ songs: [], albums: [], artists: [], playlists: [] });
       return;
     }
 
+    setQuery(searchQuery);
+    setShowSuggestions(false);
     setLoading(true);
+
     const [songs, albums, artists, playlists] = await Promise.all([
-      searchSongs(query),
-      searchAlbums(query),
-      searchArtists(query),
-      searchPlaylists(query)
+      searchSongs(searchQuery),
+      searchAlbums(searchQuery),
+      searchArtists(searchQuery),
+      searchPlaylists(searchQuery)
     ]);
 
     setResults({ songs, albums, artists, playlists });
     setLoading(false);
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    executeSearch(query);
   };
 
   const handleChipClick = async (chip: string) => {
@@ -203,91 +233,111 @@ export default function Home() {
       )}
 
       {/* Search Header */}
-      <div className="mb-8 flex flex-col items-start gap-6">
-        <form onSubmit={handleSearch} className="w-full max-w-lg relative">
+      <div className="mb-8 flex flex-col items-start gap-6 relative w-full max-w-lg">
+        <form onSubmit={handleSearch} className="w-full relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
           <input
             type="text"
             placeholder="Search songs, albums, artists..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={handleInputChange}
             className="w-full pl-12 pr-4 py-3 rounded-full bg-[#212121] border border-transparent focus:border-white/10 focus:bg-[#2a2a2a] text-white placeholder:text-zinc-500 transition outline-none"
           />
         </form>
+
+        {/* Suggestions Dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute top-full text-zinc-100 left-0 w-full max-w-lg bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 mt-2">
+            {suggestions.map((s, i) => (
+              <button
+                key={i}
+                className="w-full text-left px-4 py-3 hover:bg-white/10 transition flex items-center gap-3"
+                onClick={() => executeSearch(s)}
+              >
+                <Search size={16} className="text-zinc-500" />
+                <span>{s}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading && <div className="text-zinc-400 text-center py-20 flex flex-col items-center"><div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mb-4" />Searching...</div>}
 
       {/* Search Results */}
-      {query && !loading && (
-        <div className="flex flex-col gap-10 mb-12">
-          {renderSection("Songs", results.songs, "song")}
-          {renderSection("Albums", results.albums, "album")}
-          {renderSection("Artists", results.artists, "artist")}
-          {renderSection("Playlists", results.playlists, "playlist")}
-          {results.songs.length === 0 && results.albums.length === 0 && <div className="text-center text-zinc-500">No results found.</div>}
-        </div>
-      )}
+      {
+        query && !loading && (
+          <div className="flex flex-col gap-10 mb-12">
+            {renderSection("Songs", results.songs, "song")}
+            {renderSection("Albums", results.albums, "album")}
+            {renderSection("Artists", results.artists, "artist")}
+            {renderSection("Playlists", results.playlists, "playlist")}
+            {results.songs.length === 0 && results.albums.length === 0 && <div className="text-center text-zinc-500">No results found.</div>}
+          </div>
+        )
+      }
 
       {/* Home Content */}
-      {!query && !loading && (
-        <div className="flex flex-col gap-10">
+      {
+        !query && !loading && (
+          <div className="flex flex-col gap-10">
 
-          {/* Quick Picks / Start Radio Section (Grid Layout) */}
-          {recentlyPlayed.length > 0 && (
-            <section className="mb-0">
-              <SectionHeader title={t("quick_picks")} />
-              <div className="flex overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-                <div className="grid grid-rows-4 grid-flow-col gap-x-6 gap-y-3 min-w-max">
-                  {recentlyPlayed.slice(0, 16).map((item, idx) => {
-                    const data = normalizeItem(item, "song");
-                    // Filter out broken items
-                    if (!data.image || !data.title || data.title === "Unknown Title") return null;
+            {/* Quick Picks / Start Radio Section (Grid Layout) */}
+            {recentlyPlayed.length > 0 && (
+              <section className="mb-0">
+                <SectionHeader title={t("quick_picks")} />
+                <div className="flex overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+                  <div className="grid grid-rows-4 grid-flow-col gap-x-6 gap-y-3 min-w-max">
+                    {recentlyPlayed.slice(0, 16).map((item, idx) => {
+                      const data = normalizeItem(item, "song");
+                      // Filter out broken items
+                      if (!data.image || !data.title || data.title === "Unknown Title") return null;
 
-                    return (
-                      <CompactSongCard
-                        key={`${data.id}-${idx}r`}
-                        {...data}
-                        onPlay={() => handlePlay(item)}
-                        onClick={() => handlePlay(item)}
-                      />
-                    )
-                  })}
+                      return (
+                        <CompactSongCard
+                          key={`${data.id}-${idx}r`}
+                          {...data}
+                          onPlay={() => handlePlay(item)}
+                          onClick={() => handlePlay(item)}
+                        />
+                      )
+                    })}
+                  </div>
                 </div>
+              </section>
+            )}
+
+            {/* Mood Results */}
+            {activeChip && (
+              <div className="mb-0">
+                {moodLoading ? (
+                  <div className="flex items-center gap-2 text-zinc-400 py-4"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Loading {activeChip} mixes...</div>
+                ) : (
+                  renderSection(`${activeChip} Mixes`, moodResults, "playlist")
+                )}
               </div>
-            </section>
-          )}
+            )}
 
-          {/* Mood Results */}
-          {activeChip && (
-            <div className="mb-0">
-              {moodLoading ? (
-                <div className="flex items-center gap-2 text-zinc-400 py-4"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Loading {activeChip} mixes...</div>
-              ) : (
-                renderSection(`${activeChip} Mixes`, moodResults, "playlist")
-              )}
-            </div>
-          )}
+            {/* Mapping homeData to sections */}
+            {homeData && (
+              <>
+                {/* Mixed for you - using Trending Songs for now */}
+                {homeData.trending && renderSection(t("trending"), homeData.trending.songs, "song")}
 
-          {/* Mapping homeData to sections */}
-          {homeData && (
-            <>
-              {/* Mixed for you - using Trending Songs for now */}
-              {homeData.trending && renderSection(t("trending"), homeData.trending.songs, "song")}
+                {/* From the community - using Playlists/Albums if available, or just Charts */}
+                {homeData.charts && renderSection(t("top_charts"), homeData.charts, "chart")}
 
-              {/* From the community - using Playlists/Albums if available, or just Charts */}
-              {homeData.charts && renderSection(t("top_charts"), homeData.charts, "chart")}
+                {/* Recommended New Releases */}
+                {homeData.albums && renderSection(t("new_releases"), homeData.albums, "album")}
 
-              {/* Recommended New Releases */}
-              {homeData.albums && renderSection(t("new_releases"), homeData.albums, "album")}
+                {/* Trending Albums */}
+                {homeData.trending && renderSection(t("trending"), homeData.trending.albums, "album")}
+              </>
+            )}
+          </div>
+        )
+      }
 
-              {/* Trending Albums */}
-              {homeData.trending && renderSection(t("trending"), homeData.trending.albums, "album")}
-            </>
-          )}
-        </div>
-      )}
-
-    </div>
+    </div >
   );
 }
