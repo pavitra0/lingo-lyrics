@@ -60,8 +60,8 @@ Built with the bleeding edge of modern web tech:
 
 1.  **Clone the repo**
     ```bash
-    git clone https://github.com/Start-Up-Republic/LingoLyrics.git
-    cd LingoLyrics
+    git clone https://github.com/pavitra0/lingo-lyrics.git
+    cd lingo-lyrics
     ```
 
 2.  **Install packages**
