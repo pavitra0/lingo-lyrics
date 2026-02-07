@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { searchSongs, searchAlbums, searchArtists, searchPlaylists, getHomeModules, JioSaavnSong, JioSaavnAlbum, JioSaavnArtist, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
+import { searchSongs, searchAlbums, searchArtists, searchPlaylists, getHomeModules, getAlbumById, getPlaylistById, JioSaavnSong, JioSaavnAlbum, JioSaavnArtist, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
 import { getSearchSuggestions } from "@/lib/api/suggestions";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { useRouter } from "@/i18n/routing";
@@ -32,7 +32,9 @@ export default function Home() {
 
   // Mood Chips State
   const [activeChip, setActiveChip] = useState<string | null>("Energize");
-  const [moodResults, setMoodResults] = useState<JioSaavnPlaylist[]>([]);
+  const [moodSongs, setMoodSongs] = useState<JioSaavnSong[]>([]);
+  const [moodAlbums, setMoodAlbums] = useState<JioSaavnAlbum[]>([]);
+  const [moodPlaylists, setMoodPlaylists] = useState<JioSaavnPlaylist[]>([]);
   const [moodLoading, setMoodLoading] = useState(false);
 
   // Expanded Chips
@@ -46,16 +48,42 @@ export default function Home() {
   useEffect(() => {
     const fetchMoodData = async () => {
       if (!activeChip) {
-        setMoodResults([]);
+        setMoodSongs([]);
+        setMoodAlbums([]);
+        setMoodPlaylists([]);
         return;
       }
 
       setMoodLoading(true);
       try {
-        const playlists = await searchPlaylists(`${activeChip} songs`);
-        setMoodResults(playlists);
+        // Fetch Playlists and Albums in parallel
+        const [playlists, albums] = await Promise.all([
+          searchPlaylists(`${activeChip} songs`),
+          searchAlbums(`${activeChip} songs`)
+        ]);
+
+        setMoodPlaylists(playlists || []);
+        setMoodAlbums(albums || []);
+
+        // For Quick Picks (Songs), get songs from the first playlist found
+        if (playlists && playlists.length > 0) {
+          const firstPlaylist = playlists[0];
+          const playlistDetails = await getPlaylistById(firstPlaylist.id);
+          if (playlistDetails && playlistDetails.songs) {
+            setMoodSongs(playlistDetails.songs);
+          } else {
+            setMoodSongs([]);
+          }
+        } else {
+          setMoodSongs([]);
+        }
+
       } catch (e) {
         console.error(e);
+        // Reset on error
+        setMoodSongs([]);
+        setMoodAlbums([]);
+        setMoodPlaylists([]);
       } finally {
         setMoodLoading(false);
       }
@@ -317,13 +345,43 @@ export default function Home() {
               </section>
             )}
 
-            {/* Mood Results */}
+            {/* Mood Sections */}
             {activeChip && (
-              <div className="mb-0">
+              <div className="flex flex-col gap-10">
                 {moodLoading ? (
-                  <div className="flex items-center gap-2 text-zinc-400 py-4"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Loading {activeChip} mixes...</div>
+                  <div className="flex items-center gap-2 text-zinc-400 py-4"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Loading {activeChip} ...</div>
                 ) : (
-                  renderSection(`${activeChip} Mixes`, moodResults, "playlist")
+                  <>
+                    {/* 1. Mood Quick Picks (Songs from top album) */}
+                    {moodSongs.length > 0 && (
+                      <section className="mb-0">
+                        <SectionHeader title={`${activeChip} Picks`} />
+                        <div className="flex overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+                          <div className="grid grid-rows-4 grid-flow-col gap-x-6 gap-y-3 min-w-max">
+                            {moodSongs.slice(0, 16).map((item, idx) => {
+                              const data = normalizeItem(item, "song");
+                              if (!data.image || !data.title) return null;
+
+                              return (
+                                <CompactSongCard
+                                  key={`${data.id}-${idx}m`}
+                                  {...data}
+                                  onPlay={() => handlePlay(item)}
+                                  onClick={() => handlePlay(item)}
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* 2. Mood Playlists (Mixes) */}
+                    {moodPlaylists.length > 0 && renderSection(`${activeChip} Mixes`, moodPlaylists, "playlist")}
+
+                    {/* 3. Mood Albums */}
+                    {moodAlbums.length > 0 && renderSection(`${activeChip} Albums`, moodAlbums, "album")}
+                  </>
                 )}
               </div>
             )}

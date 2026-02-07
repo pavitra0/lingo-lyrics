@@ -19,7 +19,7 @@ async function test() {
         });
         console.log("Success:", res);
     } catch (e) {
-        console.error("Failed:", e);
+        console.error("Failed:", e as any);
     }
 }
 

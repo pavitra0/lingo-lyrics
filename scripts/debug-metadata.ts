@@ -16,7 +16,7 @@ async function test() {
             console.log("No results found.");
         }
     } catch (e) {
-        console.error("Error:", e);
+        console.error("Error:", e as any);
     }
 }
 

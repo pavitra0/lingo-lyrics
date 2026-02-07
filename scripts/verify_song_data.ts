@@ -41,7 +41,7 @@ async function verify() {
         }
 
     } catch (e) {
-        console.error("Error running verification:", e);
+        console.error("Error running verification:", e as any);
     }
 }
 
