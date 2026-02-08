@@ -2,7 +2,7 @@
 <div align="center">
   <h1>LingoLyrics 🎵</h1>
   <p><strong>Listen. Learn. Connect.</strong></p>
-  <p>The first music streaming platform that turns every song into a language lesson.</p>
+  <p>A music streaming platform that turns songs into language-learning experiences.</p>
 
   👉 **[Watch the demo on YouTube](https://www.youtube.com/watch?v=zQcwzZFDLzY)**
 
@@ -28,6 +28,10 @@ LingoLyrics bridges the gap between entertainment and education. It's a full-fea
 *   **🎤 Real-Time Synced Lyrics**: Karaoke-style scrolling lyrics for millions of songs.
 *   **🧠 Intelligent Search**: Powered by a custom algorithm that merges results from multiple APIs (JioSaavn + Invidious) to find *exactly* what you're looking for.
 *   **🎨 Premium "App-Like" Feel**: Built with glassmorphism, fluid animations (Framer Motion), and a responsive design that feels native on any device.
+
+🌍 How Lingo.dev Is Used
+Lingo.dev powers real-time language detection and lyric translation inside the app.  
+Translations are triggered only on user interaction (word click or sentence selection) and cached to optimize token usage and performance.
 
 ---
 
@@ -86,3 +90,6 @@ Built with the bleeding edge of modern web tech:
 <div align="center">
   Made with ❤️ by pavitra0
 </div>
+
+🛠️ Built from scratch for the Lingo.dev Hackathon.
+
