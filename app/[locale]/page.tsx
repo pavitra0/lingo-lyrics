@@ -161,10 +161,6 @@ export default function Home() {
 
   const handleChipClick = (chip: string) => {
     if (activeChip === chip) {
-      // Allow deselecting? Or maybe keep it always selected like YouTube Music? 
-      // User asked for "pre selected", usually implies one is always active.
-      // But let's allow toggle off to return to default state if we had one.
-      // For now, let's allow clicking same chip to do nothing or re-fetch.
       return;
     }
     setActiveChip(chip);

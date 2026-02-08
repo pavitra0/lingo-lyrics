@@ -59,6 +59,9 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
     const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
     const [popupLoading, setPopupLoading] = useState(false);
 
+    // Language Menu State
+    const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+
     // Track in-flight requests to prevent duplicate fetches
     const fetchingRef = useRef(new Set<string>());
 
@@ -312,29 +315,35 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                 </button>
 
                 {showTranslation && (
-                    <div className="relative group/lang">
-                        <button className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition-all flex items-center gap-2 bg-black/40 backdrop-blur-md">
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                            className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition-all flex items-center gap-2 bg-black/40 backdrop-blur-md"
+                        >
                             {languages.find(l => l.code === targetLang)?.name}
-                            <ChevronDown size={12} />
+                            <ChevronDown size={12} className={cn("transition-transform", isLangMenuOpen ? "rotate-180" : "rotate-0")} />
                         </button>
 
-                        <div className="absolute top-full left-0 mt-2 w-32 bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-2xl opacity-0 invisible group-hover/lang:opacity-100 group-hover/lang:visible transition-all transform origin-top scale-95 group-hover/lang:scale-100 flex flex-col z-50">
-                            {languages.map(lang => (
-                                <button
-                                    key={lang.code}
-                                    onClick={() => {
-                                        setTargetLang(lang.code);
-                                        localStorage.setItem("targetLang_pref", lang.code); // Save Preference
-                                        // Clear cache to re-translate
-                                        setTranslatedLines({});
-                                        fetchingRef.current.clear(); // Explicitly clear any pending
-                                    }}
-                                    className={cn("px-4 py-2 text-left text-xs font-medium hover:bg-white/10 transition-colors", targetLang === lang.code ? "text-purple-400" : "text-zinc-400")}
-                                >
-                                    {lang.name}
-                                </button>
-                            ))}
-                        </div>
+                        {(isLangMenuOpen) && (
+                            <div className="absolute top-full left-0 mt-2 w-32 bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col z-50 animate-in fade-in zoom-in-95 duration-200">
+                                {languages.map(lang => (
+                                    <button
+                                        key={lang.code}
+                                        onClick={() => {
+                                            setTargetLang(lang.code);
+                                            localStorage.setItem("targetLang_pref", lang.code); // Save Preference
+                                            // Clear cache to re-translate
+                                            setTranslatedLines({});
+                                            fetchingRef.current.clear(); // Explicitly clear any pending
+                                            setIsLangMenuOpen(false); // Close menu
+                                        }}
+                                        className={cn("px-4 py-2 text-left text-xs font-medium hover:bg-white/10 transition-colors", targetLang === lang.code ? "text-purple-400" : "text-zinc-400")}
+                                    >
+                                        {lang.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
