@@ -5,6 +5,16 @@ export interface JioSaavnSong {
     name: string;
     type: string;
     artistId?: string; // Added for navigation
+    artists?: {
+        primary?: Array<{
+            id?: string;
+            name?: string;
+        }>;
+        featured?: Array<{
+            id?: string;
+            name?: string;
+        }>;
+    };
     album: {
         id: string;
         name: string;
