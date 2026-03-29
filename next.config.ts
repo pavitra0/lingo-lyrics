@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "static.saavncdn.com",
       },
+      {
+        protocol: "https",
+        hostname: "admin.aws.sg.saavn.com",
+      },
     ],
   },
 };

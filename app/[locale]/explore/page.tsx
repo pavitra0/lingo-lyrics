@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { searchPlaylists, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
-import { ChevronLeft, ChevronRight, Play } from "lucide-react";
-import Image from "next/image";
+import { Play } from "lucide-react";
 import { Link } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+import { MusicImage } from "@/components/Shared/MusicImage";
 
 const GENRES = ["For You", "Hindi", "English", "Punjabi", "Tamil", "Telugu", "Marathi", "Gujarati", "Bengali", "Kannada", "Bhojpuri", "Haryanvi", "Rajasthani"];
 
@@ -13,19 +13,6 @@ export default function ExplorePage() {
     const [selectedGenre, setSelectedGenre] = useState("For You");
     const [playlists, setPlaylists] = useState<JioSaavnPlaylist[]>([]);
     const [loading, setLoading] = useState(false);
-    const scrollRef = useRef<HTMLDivElement>(null);
-
-    const scrollLeft = () => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollBy({ left: -800, behavior: "smooth" });
-        }
-    };
-
-    const scrollRight = () => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollBy({ left: 800, behavior: "smooth" });
-        }
-    };
 
     const fetchPlaylists = async (genre: string) => {
         setLoading(true);
@@ -49,10 +36,10 @@ export default function ExplorePage() {
 
     return (
         <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen pb-24">
-            <h1 className="text-3xl font-bold mb-8">Explore</h1>
+            <h1 className="text-3xl font-bold mb-8 text-foreground">Explore</h1>
 
             {/* Genre Pills */}
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-6 sticky top-0 z-20 bg-black/80 backdrop-blur-xl py-4 -mt-4 -mx-4 px-4 md:mx-0 md:px-0 md:static md:bg-transparent md:backdrop-blur-none">
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-6 sticky top-0 z-20 bg-background/80 backdrop-blur-xl py-4 -mt-4 -mx-4 px-4 md:mx-0 md:px-0 md:static md:bg-transparent md:backdrop-blur-none">
                 {GENRES.map((genre) => (
                     <button
                         key={genre}
@@ -60,8 +47,8 @@ export default function ExplorePage() {
                         className={cn(
                             "px-6 py-2 rounded-full whitespace-nowrap transition-all font-medium text-sm md:text-base border hover:scale-105 active:scale-95",
                             selectedGenre === genre
-                                ? "bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"
-                                : "bg-[#121212] text-zinc-400 border-white/10 hover:border-white/50 hover:text-white"
+                                ? "bg-foreground text-background border-foreground shadow-sm"
+                                : "bg-surface text-zinc-500 hover:text-foreground border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/50"
                         )}
                     >
                         {genre}
@@ -71,7 +58,7 @@ export default function ExplorePage() {
 
             <div className="mt-8">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                         <span className="w-1.5 h-6 bg-purple-500 rounded-full inline-block"></span>
                         {selectedGenre} Playlists
                     </h2>
@@ -94,17 +81,17 @@ export default function ExplorePage() {
                                 <Link
                                     href={`/playlist/${playlist.id}`}
                                     key={playlist.id}
-                                    className="group flex flex-col gap-3 cursor-pointer p-4 rounded-xl transition-all duration-300 hover:bg-[#212121] border border-transparent hover:border-white/5"
+                                    className="group flex flex-col gap-3 cursor-pointer p-4 rounded-xl transition-all duration-300 hover:bg-surface-hover border border-transparent hover:border-zinc-200 dark:hover:border-white/5"
                                 >
-                                    <div className="relative aspect-square rounded-lg overflow-hidden bg-zinc-800 shadow-lg group-hover:shadow-2xl transition">
-                                        {image && (
-                                            <Image
-                                                src={image}
-                                                alt={playlist.name}
-                                                fill
-                                                className="object-cover group-hover:scale-105 transition duration-500"
-                                            />
-                                        )}
+                                    <div className="relative aspect-square rounded-lg overflow-hidden bg-surface shadow-lg group-hover:shadow-2xl transition">
+                                        <MusicImage
+                                            src={image}
+                                            alt={playlist.name}
+                                            fill
+                                            className="object-cover group-hover:scale-105 transition duration-500"
+                                            sizes="(max-width: 768px) 45vw, (max-width: 1280px) 22vw, 18rem"
+                                            fallbackIconSize={28}
+                                        />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                                             <div className="p-3 bg-white rounded-full text-black scale-90 group-hover:scale-100 transition shadow-lg translate-y-4 group-hover:translate-y-0">
                                                 <Play size={28} fill="currentColor" />
@@ -112,8 +99,8 @@ export default function ExplorePage() {
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <h3 className="font-semibold text-white truncate text-base leading-tight group-hover:text-purple-400 transition-colors">{playlist.name}</h3>
-                                        <p className="text-zinc-400 text-sm truncate">{playlist.language || "Playlist"}</p>
+                                        <h3 className="font-semibold text-foreground truncate text-base leading-tight group-hover:text-purple-400 transition-colors">{playlist.name}</h3>
+                                        <p className="text-zinc-500 dark:text-zinc-400 text-sm truncate">{playlist.language || "Playlist"}</p>
                                     </div>
                                 </Link>
                             );
@@ -122,7 +109,7 @@ export default function ExplorePage() {
                 </div>
 
                 {!loading && playlists.length === 0 && (
-                    <div className="w-full text-center text-zinc-500 py-20 bg-[#121212] rounded-xl border border-white/5">
+                    <div className="w-full text-center text-zinc-500 py-20 bg-surface rounded-xl border border-zinc-200 dark:border-white/5">
                         <p className="text-lg">No playlists found for {selectedGenre}.</p>
                     </div>
                 )}

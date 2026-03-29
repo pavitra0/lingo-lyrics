@@ -13,9 +13,13 @@ import HorizontalScroll from "@/components/Home/HorizontalScroll";
 import SongCard from "@/components/Home/SongCard";
 import CompactSongCard from "@/components/Home/CompactSongCard";
 import { useTranslations } from "next-intl";
+import { useTheme } from "@/lib/contexts/ThemeContext";
 
 export default function Home() {
   const t = useTranslations("Home");
+  const { theme } = useTheme();
+  const isTerminal = theme === "terminal";
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{
     songs: JioSaavnSong[];
@@ -175,6 +179,7 @@ export default function Home() {
       id: item.id,
       title: item.name || item.title,
       artist: item.primaryArtists || item.artist || item.subtitle,
+      artistId: item.artistId || item.artists?.primary?.[0]?.id,
       image: image || "",
       url: downloadUrl || "",
       duration: typeof item.duration === 'string' ? parseInt(item.duration) : item.duration,
@@ -231,23 +236,56 @@ export default function Home() {
 
   return (
     <div className="p-4 md:p-8 max-w-[1700px] mx-auto pb-40 relative">
-      {/* Premium Background Gradient */}
-      <div className="fixed inset-0 z-[-1] pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-purple-900/20 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/20 blur-[120px]" />
-        <div className="absolute top-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-pink-900/10 blur-[100px]" />
-      </div>
+      {/* Premium Background Gradient (Dark Theme Only) */}
+      {theme === "dark" && (
+        <div className="fixed inset-0 z-[-1] pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-purple-900/20 blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/20 blur-[120px]" />
+          <div className="absolute top-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-pink-900/10 blur-[100px]" />
+        </div>
+      )}
 
-      {/* Header / Greeting */}
-      {!query && (
+      {/* Modern / Terminal Header Sections */}
+      {!query && isTerminal && (
+        <>
+          <div className="mt-12 mb-10 flex flex-col items-center text-center w-full">
+            <div className="text-foreground font-bold text-lg mb-16 tracking-wide">
+              LingoLyrics
+            </div>
+            <h1 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight mb-6 leading-tight">
+              Most Actively Listened-To Global <br className="hidden md:block" /> Music
+            </h1>
+            <p className="text-zinc-400 text-sm md:text-base max-w-2xl leading-relaxed">
+              Discover what people are actually listening to right now.<br />
+              Ranked by real-world activity, not just charts.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-center flex-wrap w-full mb-10 px-4">
+            {chips.slice(0, 6).map(chip => (
+              <button
+                key={chip}
+                onClick={() => handleChipClick(chip)}
+                className={cn(
+                  "px-4 py-1.5 rounded text-xs font-mono transition border",
+                  activeChip === chip
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-background hover:bg-surface-hover hover:text-foreground border-zinc-800 text-zinc-400"
+                )}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Classic / Dark Theme Header Sections */}
+      {!query && !isTerminal && (
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-6">
-
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{getGreeting()}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">{getGreeting()}</h1>
           </div>
-
-          {/* Chips */}
-          <div className="flex gap-3 overflow-x-auto no-scrollbar w-full pb-2 sticky top-0 bg-black/95 py-2 z-20 -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar w-full pb-2 sticky top-0 bg-background/95 py-2 z-20 -mx-4 px-4 md:mx-0 md:px-0">
             {chips.map(chip => (
               <button
                 key={chip}
@@ -255,8 +293,8 @@ export default function Home() {
                 className={cn(
                   "px-4 py-1.5 rounded-lg transition whitespace-nowrap text-sm font-medium border",
                   activeChip === chip
-                    ? "bg-white text-black border-white"
-                    : "bg-[#212121] hover:bg-[#333] hover:text-white border-white/10 text-zinc-300"
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-surface hover:bg-surface-hover hover:text-foreground border-zinc-800/10 text-zinc-500 dark:text-zinc-300"
                 )}
               >
                 {chip}
@@ -267,25 +305,35 @@ export default function Home() {
       )}
 
       {/* Search Header */}
-      <div className="mb-8 flex flex-col items-start gap-6 relative w-full max-w-lg">
-        <form onSubmit={handleSearch} className="w-full relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
+      <div className={cn("relative w-full mx-auto px-4 md:px-0 flex relative", isTerminal ? "mb-16 max-w-3xl items-center justify-center gap-4 flex-col md:flex-row" : "mb-8 flex-col items-start gap-6 max-w-lg")}>
+        <form onSubmit={handleSearch} className={cn("relative", isTerminal ? "w-full flex-1" : "w-full")}>
+          <Search className={cn("absolute left-4 top-1/2 -translate-y-1/2", isTerminal ? "text-zinc-600" : "text-zinc-400")} size={isTerminal ? 16 : 20} />
           <input
             type="text"
-            placeholder="Search songs, albums, artists..."
+            placeholder={isTerminal ? "Search for songs, artists..." : "Search songs, albums, artists..."}
             value={query}
             onChange={handleInputChange}
-            className="w-full pl-12 pr-4 py-3 rounded-full bg-[#212121] border border-transparent focus:border-white/10 focus:bg-[#2a2a2a] text-white placeholder:text-zinc-500 transition outline-none"
+            className={cn(
+              "w-full pl-12 pr-4 transition outline-none",
+              isTerminal
+                ? "py-2.5 rounded bg-background border border-zinc-800 focus:border-zinc-500 text-foreground placeholder-zinc-600 text-sm font-mono"
+                : "py-3 rounded-full bg-surface border border-zinc-200 dark:border-transparent focus:border-zinc-300 dark:focus:border-white/10 focus:bg-surface-hover text-foreground placeholder-zinc-500"
+            )}
           />
         </form>
+        {isTerminal && (
+          <button className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-sm font-bold rounded opacity-90 hover:opacity-100 transition-colors whitespace-nowrap">
+            + Add Playlist
+          </button>
+        )}
 
         {/* Suggestions Dropdown */}
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute top-full text-zinc-100 left-0 w-full max-w-lg bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 mt-2">
+          <div className="absolute top-full text-foreground left-0 w-full max-w-lg bg-surface border border-zinc-200 dark:border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 mt-2">
             {suggestions.map((s, i) => (
               <button
                 key={i}
-                className="w-full text-left px-4 py-3 hover:bg-white/10 transition flex items-center gap-3"
+                className="w-full text-left px-4 py-3 hover:bg-surface-hover transition flex items-center gap-3"
                 onClick={() => executeSearch(s)}
               >
                 <Search size={16} className="text-zinc-500" />

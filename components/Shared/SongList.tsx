@@ -2,8 +2,8 @@
 
 import { JioSaavnSong } from "@/lib/api/jiosaavn";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
-import Image from "next/image";
 import { Play } from "lucide-react";
+import { MusicImage } from "@/components/Shared/MusicImage";
 
 interface SongListProps {
     songs: JioSaavnSong[];
@@ -11,7 +11,7 @@ interface SongListProps {
 }
 
 export function SongList({ songs, onPlay }: SongListProps) {
-    const { playSong, currentSong, isPlaying, togglePlay } = usePlayer();
+    const { playSong, currentSong } = usePlayer();
 
     const handlePlay = (song: JioSaavnSong, index: number) => {
         if (onPlay) {
@@ -26,6 +26,7 @@ export function SongList({ songs, onPlay }: SongListProps) {
             id: song.id,
             title: song.name,
             artist: song.primaryArtists,
+            artistId: song.artistId,
             image: highQualityImage || "",
             url: highQualityAudio || "",
             duration: parseInt(song.duration),
@@ -53,7 +54,7 @@ export function SongList({ songs, onPlay }: SongListProps) {
                         </span>
 
                         <div className="relative h-10 w-10 flex-shrink-0 rounded overflow-hidden bg-zinc-800">
-                            <Image src={imageUrl} alt={song.name} fill className="object-cover" />
+                            <MusicImage src={imageUrl} alt={song.name} fill className="object-cover" fallbackIconSize={16} />
                         </div>
 
                         <div className="flex-1 min-w-0 flex flex-col justify-center">

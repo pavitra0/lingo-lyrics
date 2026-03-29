@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePlayer } from "@/lib/contexts/PlayerContext";
+import { usePlayer, Song } from "@/lib/contexts/PlayerContext";
 import { Play, Trash2, Heart, Music2, Quote } from "lucide-react";
 import { getSongById } from "@/lib/api/jiosaavn";
-import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { MusicImage } from "@/components/Shared/MusicImage";
 
 interface FavoriteLine {
     id: string;
@@ -22,7 +22,7 @@ export default function FavoritesPage() {
     const [activeTab, setActiveTab] = useState<'songs' | 'lyrics'>('songs');
 
     return (
-        <div className="flex flex-col w-full min-h-screen bg-black text-white p-4 md:p-8 pb-32 max-w-[1600px] mx-auto">
+        <div className="flex flex-col w-full min-h-screen bg-background text-foreground p-4 md:p-8 pb-32 max-w-[1600px] mx-auto">
             <div className="flex items-center gap-4 mb-8">
                 <Heart className="text-red-500" size={32} fill="currentColor" />
                 <h1 className="text-3xl md:text-4xl font-bold">Favorites</h1>
@@ -34,7 +34,7 @@ export default function FavoritesPage() {
                     onClick={() => setActiveTab('songs')}
                     className={cn(
                         "px-4 py-2 text-sm font-medium transition flex items-center gap-2 border-b-2",
-                        activeTab === 'songs' ? "border-purple-500 text-white" : "border-transparent text-zinc-400 hover:text-white"
+                        activeTab === 'songs' ? "border-purple-500 text-foreground" : "border-transparent text-zinc-500 hover:text-foreground"
                     )}
                 >
                     <Music2 size={18} />
@@ -44,7 +44,7 @@ export default function FavoritesPage() {
                     onClick={() => setActiveTab('lyrics')}
                     className={cn(
                         "px-4 py-2 text-sm font-medium transition flex items-center gap-2 border-b-2",
-                        activeTab === 'lyrics' ? "border-purple-500 text-white" : "border-transparent text-zinc-400 hover:text-white"
+                        activeTab === 'lyrics' ? "border-purple-500 text-foreground" : "border-transparent text-zinc-500 hover:text-foreground"
                     )}
                 >
                     <Quote size={18} />
@@ -60,7 +60,7 @@ export default function FavoritesPage() {
 }
 
 function LikedSongsTab() {
-    const [songs, setSongs] = useState<any[]>([]);
+    const [songs, setSongs] = useState<Song[]>([]);
     const { playSong } = usePlayer();
 
     useEffect(() => {
@@ -104,17 +104,17 @@ function LikedSongsTab() {
                     key={`${song.id}-${i}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="group flex items-center justify-between p-2 rounded-md hover:bg-white/5 transition cursor-pointer"
+                    className="group flex items-center justify-between p-2 rounded-md hover:bg-surface-hover transition cursor-pointer"
                     onClick={() => playSong(song)}
                 >
                     <div className="flex items-center gap-4">
                         <span className="text-zinc-500 w-6 text-center">{i + 1}</span>
                         <div className="relative h-12 w-12 rounded overflow-hidden bg-zinc-800 flex-shrink-0">
-                            {song.image && <Image src={song.image} alt={song.title} fill className="object-cover" />}
+                            <MusicImage src={song.image} alt={song.title} fill className="object-cover" sizes="48px" fallbackIconSize={16} />
                         </div>
                         <div>
-                            <h3 className="font-medium text-white group-hover:text-purple-400 transition line-clamp-1">{song.title}</h3>
-                            <p className="text-sm text-zinc-400 line-clamp-1">{song.artist}</p>
+                            <h3 className="font-medium text-foreground group-hover:text-purple-400 transition line-clamp-1">{song.title}</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1">{song.artist}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -123,7 +123,7 @@ function LikedSongsTab() {
                         </span>
                         <button
                             onClick={(e) => removeSong(song.id, e)}
-                            className="p-2 text-zinc-500 hover:text-red-500 hover:bg-white/10 rounded-full transition opacity-0 group-hover:opacity-100"
+                            className="p-2 text-zinc-500 hover:text-red-500 hover:bg-surface-hover rounded-full transition opacity-0 group-hover:opacity-100"
                         >
                             <Trash2 size={18} />
                         </button>
@@ -164,6 +164,7 @@ function SavedLyricsTab() {
                     id: song.id,
                     title: song.name,
                     artist: song.primaryArtists,
+                    artistId: song.artistId || song.artists?.primary?.[0]?.id,
                     image: highQualityImage || "",
                     url: highQualityAudio || "",
                     duration: parseInt(song.duration),
@@ -198,7 +199,7 @@ function SavedLyricsTab() {
             {favorites.map((fav, index) => (
                 <div
                     key={`${fav.id}-${index}`}
-                    className="bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 rounded-xl p-4 flex items-center justify-between group transition cursor-pointer"
+                    className="bg-surface hover:bg-surface-hover border border-zinc-200 dark:border-white/5 rounded-xl p-4 flex items-center justify-between group transition cursor-pointer"
                     onClick={() => handlePlay(fav)}
                 >
                     <div className="flex items-center gap-4 min-w-0">
@@ -206,8 +207,8 @@ function SavedLyricsTab() {
                             <Play size={20} fill="currentColor" />
                         </div>
                         <div className="flex flex-col min-w-0">
-                            <p className="font-serif text-lg md:text-xl italic text-purple-200 line-clamp-2">"{fav.text}"</p>
-                            <p className="text-sm text-zinc-400 mt-1 truncate">{fav.title} • {fav.artist}</p>
+                            <p className="font-serif text-lg md:text-xl italic text-purple-600 dark:text-purple-200 line-clamp-2">&quot;{fav.text}&quot;</p>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 truncate">{fav.title} • {fav.artist}</p>
                         </div>
                     </div>
 

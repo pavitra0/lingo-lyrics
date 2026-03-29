@@ -7,13 +7,22 @@ import { getSyncedLyrics, LrcLibSong } from "@/lib/api/lyrics";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { LyricsContainer } from "@/components/Lyrics/LyricsContainer";
 import { SongList } from "@/components/Shared/SongList";
+import { MusicImage } from "@/components/Shared/MusicImage";
 import { Link } from "@/i18n/routing";
-import Image from "next/image";
+import { isUnavailableMusicImage } from "@/lib/musicArt";
+
+type SongPageSong = JioSaavnSong & {
+    artists?: { primary?: Array<{ name?: string }> };
+    primary_artists?: string;
+    subtitle?: string;
+    description?: string;
+    artist?: string | string[];
+};
 
 export default function SongPage() {
     const params = useParams();
     const id = params.id as string;
-    const { playSong, currentSong, isPlaying } = usePlayer();
+    const { playSong, currentSong } = usePlayer();
     const [loading, setLoading] = useState(true);
     const [song, setSong] = useState<JioSaavnSong | null>(null);
     const [lyricsData, setLyricsData] = useState<LrcLibSong | null>(null);
@@ -63,7 +72,7 @@ export default function SongPage() {
 
                 // Defensive Artist Extraction (Match PlayerContext logic)
                 let artist = "";
-                const rawData = songData as any;
+                const rawData = songData as SongPageSong;
 
                 // 1. Try nested object first
                 if (rawData.artists?.primary?.[0]?.name) {
@@ -133,6 +142,7 @@ export default function SongPage() {
                         id: songData.id,
                         title: songData.name,
                         artist: songData.primaryArtists,
+                        artistId: songData.artistId || songData.artists?.primary?.[0]?.id,
                         image: highQualityImage,
                         url: highQualityAudio,
                         duration: parseInt(songData.duration)
@@ -144,7 +154,7 @@ export default function SongPage() {
         };
 
         init();
-    }, [id]);
+    }, [currentSong?.id, id, playSong]);
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
@@ -154,23 +164,33 @@ export default function SongPage() {
         return <div className="min-h-screen flex items-center justify-center text-white">Song not found</div>;
     }
 
+    const songDetails = song as SongPageSong;
+    const coverImage = song.image[song.image.length - 1]?.url || "";
+    const hasRealCover = !isUnavailableMusicImage(coverImage);
+    const artistDisplay =
+        song.primaryArtists ||
+        (Array.isArray(songDetails.artist) ? songDetails.artist[0] : songDetails.artist) ||
+        songDetails.subtitle ||
+        "Unknown Artist";
+
     return (
         <div className="min-h-screen w-full bg-black text-white relative overflow-hidden flex flex-col md:flex-row">
 
             {/* Background Image (Blurred & Glass Effect) */}
-            {song.image && (
+            {hasRealCover && (
                 <div className="absolute inset-0 z-0 select-none pointer-events-none">
                     {/* Dark Overlay for text readability */}
                     <div className="absolute inset-0 bg-black/60 z-10" />
                     {/* Gradient Mesh Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-transparent to-black/80 z-10" />
 
-                    <Image
-                        src={song.image[song.image.length - 1]?.url}
+                    <MusicImage
+                        src={coverImage}
                         alt="background"
                         fill
                         className="object-cover blur-[80px] scale-110 opacity-60"
                         priority
+                        sizes="100vw"
                     />
                 </div>
             )}
@@ -180,15 +200,15 @@ export default function SongPage() {
                 {/* Left Column: Album Art */}
                 <div className="w-full md:w-1/2 flex flex-col items-center justify-center md:h-[calc(100vh-100px)] md:sticky md:top-0">
                     <div className="relative aspect-square w-full max-w-sm md:max-w-md shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden border border-white/10 group">
-                        {song.image && (
-                            <Image
-                                src={song.image[song.image.length - 1]?.url}
-                                alt={song.name}
-                                fill
-                                className="object-cover"
-                                priority
-                            />
-                        )}
+                        <MusicImage
+                            src={coverImage}
+                            alt={song.name}
+                            fill
+                            className="object-cover"
+                            priority
+                            sizes="(max-width: 768px) 88vw, 32rem"
+                            fallbackIconSize={56}
+                        />
                         {/* Shimmer effect on hover */}
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" />
                     </div>
@@ -198,10 +218,10 @@ export default function SongPage() {
                         <p className="text-xl md:text-2xl text-zinc-200 font-semibold drop-shadow-md">
                             {song.artistId ? (
                                 <Link href={`/artist/${song.artistId}`} className="hover:text-white hover:underline transition-colors">
-                                    {song.primaryArtists || (song as any).artist || (song as any).subtitle || "Unknown Artist"}
+                                    {artistDisplay}
                                 </Link>
                             ) : (
-                                song.primaryArtists || (song as any).artist || (song as any).subtitle || "Unknown Artist"
+                                artistDisplay
                             )}
                         </p>
                         <p className="text-sm text-zinc-400 mt-2 uppercase tracking-widest font-medium">{song.album?.name} • {song.year}</p>

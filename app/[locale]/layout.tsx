@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { MusicPlayer } from "@/components/Player/MusicPlayer";
 import { Sidebar } from "@/components/Navigation/Sidebar";
+import ThemeSwitcher from "@/components/Shared/ThemeSwitcher";
 import { BottomNav } from "@/components/Navigation/BottomNav";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
@@ -45,16 +46,18 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className="dark">
+    <html lang={locale}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black min-h-screen text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background min-h-screen text-foreground transition-colors duration-300`}
       >
         <NextIntlClientProvider messages={messages}>
           <Providers>
             <div className="flex h-screen overflow-hidden">
               <Sidebar />
-              {/* Main Content Area: Padding bottom for player + bottom nav on mobile */}
               <main className="flex-1 overflow-y-auto pb-32 md:pb-24 relative z-0">
+                <div className="absolute top-4 right-4 md:top-6 md:right-8 z-50">
+                  <ThemeSwitcher />
+                </div>
                 {children}
               </main>
             </div>

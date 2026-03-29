@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { History as HistoryIcon, Play, Trash2 } from "lucide-react";
-import Image from "next/image";
 import { usePlayer, Song } from "@/lib/contexts/PlayerContext";
+import { MusicImage } from "@/components/Shared/MusicImage";
 
 export default function HistoryPage() {
     const [history, setHistory] = useState<Song[]>([]);
@@ -29,7 +29,7 @@ export default function HistoryPage() {
     };
 
     return (
-        <div className="flex flex-col w-full min-h-screen bg-black text-white p-4 md:p-8 pb-32">
+        <div className="flex flex-col w-full min-h-screen bg-background text-foreground p-4 md:p-8 pb-32">
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                     <HistoryIcon className="text-zinc-400" size={32} />
@@ -53,20 +53,27 @@ export default function HistoryPage() {
                     {history.map((song, index) => (
                         <div
                             key={`${song.id}-${index}`}
-                            className="group flex flex-col gap-3 cursor-pointer yt-card p-3 rounded-lg -mx-3 hover:bg-zinc-900/50"
+                            className="group flex flex-col gap-3 cursor-pointer p-3 rounded-lg -mx-3 hover:bg-surface-hover/50 transition-colors"
                             onClick={() => playSong(song)}
                         >
-                            <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-800 shadow-lg">
-                                <Image src={song.image} alt={song.title} fill className="object-cover group-hover:scale-105 transition duration-500" />
+                            <div className="relative aspect-square rounded-md overflow-hidden bg-surface shadow-lg">
+                                <MusicImage
+                                    src={song.image}
+                                    alt={song.title}
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition duration-500"
+                                    sizes="(max-width: 768px) 44vw, (max-width: 1280px) 24vw, 16rem"
+                                    fallbackIconSize={28}
+                                />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                                     <div className="p-3 bg-white rounded-full text-black scale-90 group-hover:scale-100 transition shadow-lg">
                                         <Play size={24} fill="currentColor" />
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-0.5">
-                                <h3 className="font-semibold text-white truncate text-base leading-tight">{song.title}</h3>
-                                <div className="flex items-center text-zinc-400 text-sm truncate">
+                            <div className="flex flex-col gap-0.5 mt-1">
+                                <h3 className="font-semibold text-foreground truncate text-base leading-tight">{song.title}</h3>
+                                <div className="flex items-center text-zinc-500 dark:text-zinc-400 text-sm truncate">
                                     <span className="truncate">{song.artist}</span>
                                 </div>
                             </div>

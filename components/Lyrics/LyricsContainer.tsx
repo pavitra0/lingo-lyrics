@@ -20,6 +20,8 @@ interface LyricsContainerProps {
     songId: string;
     language?: string;
     isLoading?: boolean;
+    className?: string;
+    variant?: "default" | "player";
 }
 
 const parseLrc = (lrc: string): LrcLine[] => {
@@ -43,7 +45,7 @@ const parseLrc = (lrc: string): LrcLine[] => {
     return result;
 };
 
-export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Unknown Artist", songId, language = "en", isLoading = false }: LyricsContainerProps) {
+export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Unknown Artist", songId, language = "en", isLoading = false, className, variant = "default" }: LyricsContainerProps) {
     const { progress, seek } = usePlayer();
     const [lines, setLines] = useState<LrcLine[]>([]);
     const [activeindex, setActiveIndex] = useState(-1);
@@ -67,6 +69,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
     // Language State
     const [targetLang, setTargetLang] = useState("en"); // Default default
+    const isPlayerVariant = variant === "player";
 
     // Load preference on mount
     useEffect(() => {
@@ -285,12 +288,12 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                 }
             });
         }
-    }, [activeindex, showTranslation, lines, targetLang, translatedLines]);
+    }, [activeindex, showTranslation, lines, targetLang, translatedLines, detectedSourceLang, isSynced]);
 
 
     return (
         <div
-            className="flex flex-col h-full max-h-[70vh] w-full max-w-2xl mx-auto items-center relative"
+            className={cn("relative mx-auto flex h-full max-h-[70vh] w-full max-w-2xl flex-col items-center", isPlayerVariant && "max-h-full max-w-none", className)}
             onMouseUp={handleMouseUp}
         >
 
@@ -305,27 +308,46 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                 />
             )}
 
-            <div className="mb-4 flex gap-4 relative z-50">
+            <div className="relative z-50 mb-4 flex gap-4">
                 <button
                     onClick={() => setShowTranslation(!showTranslation)}
-                    className={cn("px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border transition-all flex items-center gap-2", showTranslation ? "bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-zinc-200")}
+                    className={cn(
+                        "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all",
+                        isPlayerVariant && "px-3",
+                        showTranslation
+                            ? "border-white bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.25)]"
+                            : isPlayerVariant
+                                ? "border-white/15 bg-transparent text-zinc-200 hover:bg-white/10 hover:text-white"
+                                : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                    )}
+                    title={showTranslation ? "Translation On" : "Translate"}
                 >
                     <BookPlus size={14} />
-                    {showTranslation ? "Translation ON" : "Translate"}
+                    {!isPlayerVariant && (showTranslation ? "Translation ON" : "Translate")}
                 </button>
 
                 {showTranslation && (
                     <div className="relative">
                         <button
                             onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                            className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition-all flex items-center gap-2 bg-black/40 backdrop-blur-md"
+                            className={cn(
+                                "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all backdrop-blur-md",
+                                isPlayerVariant
+                                    ? "border-white/15 bg-transparent text-zinc-200 hover:bg-white/10 hover:text-white"
+                                    : "border-zinc-700 bg-black/40 text-zinc-300 hover:border-zinc-500 hover:text-white"
+                            )}
                         >
                             {languages.find(l => l.code === targetLang)?.name}
                             <ChevronDown size={12} className={cn("transition-transform", isLangMenuOpen ? "rotate-180" : "rotate-0")} />
                         </button>
 
                         {(isLangMenuOpen) && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-[#212121] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col z-50 animate-in fade-in zoom-in-95 duration-200">
+                            <div className={cn(
+                                "absolute top-full left-0 z-50 mt-2 flex w-32 flex-col overflow-hidden rounded-xl border shadow-2xl animate-in fade-in zoom-in-95 duration-200",
+                                isPlayerVariant
+                                    ? "border-white/10 bg-black/20 backdrop-blur-xl"
+                                    : "border-white/10 bg-[#212121]"
+                            )}>
                                 {languages.map(lang => (
                                     <button
                                         key={lang.code}
@@ -337,7 +359,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                             fetchingRef.current.clear(); // Explicitly clear any pending
                                             setIsLangMenuOpen(false); // Close menu
                                         }}
-                                        className={cn("px-4 py-2 text-left text-xs font-medium hover:bg-white/10 transition-colors", targetLang === lang.code ? "text-purple-400" : "text-zinc-400")}
+                                        className={cn("px-4 py-2 text-left text-xs font-medium transition-colors hover:bg-white/10", targetLang === lang.code ? "text-white" : "text-zinc-400")}
                                     >
                                         {lang.name}
                                     </button>
@@ -352,7 +374,14 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
             {/* Source Language Override (Visible when Translation ON) */}
 
 
-            <div className="flex-1 overflow-y-auto w-full px-4 no-scrollbar mask-gradient" ref={scrollRef} style={{ maskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)" }}>
+            <div
+                className={cn(
+                    "mask-gradient no-scrollbar flex-1 overflow-y-auto w-full px-4",
+                    isPlayerVariant && "bg-transparent"
+                )}
+                ref={scrollRef}
+                style={{ maskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)" }}
+            >
                 {lines.length > 0 ? (
                     <div className="py-[50vh]">
                         {lines.map((line, i) => {
@@ -380,7 +409,10 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                             {words.map((word, wIndex) => (
                                                 <span
                                                     key={wIndex}
-                                                    className="hover:underline decoration-purple-500/50 hover:text-purple-300 transition-colors cursor-pointer mr-1.5"
+                                                    className={cn(
+                                                        "mr-1.5 cursor-pointer transition-colors hover:underline",
+                                                        isPlayerVariant ? "decoration-white/40 hover:text-white" : "decoration-purple-500/50 hover:text-purple-300"
+                                                    )}
                                                     onClick={(e) => handleWordClick(e, word)}
                                                 >
                                                     {word}
@@ -388,7 +420,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                             ))}
                                         </p>
                                         {showTranslation && translatedLines[i] && (
-                                            <p className="text-sm md:text-base text-purple-400 mt-1">{translatedLines[i]}</p>
+                                            <p className={cn("mt-1 text-sm md:text-base", isPlayerVariant ? "text-zinc-300" : "text-purple-400")}>{translatedLines[i]}</p>
                                         )}
                                     </motion.div>
 
@@ -400,19 +432,19 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                             isFav && "opacity-100 text-red-500"
                                         )}
                                     >
-                                        <Heart size={20} fill={isFav ? "currentColor" : "none"} className={isFav ? "text-red-500" : "text-zinc-500"} />
+                                        <Heart size={20} fill={isFav ? "currentColor" : "none"} className={isFav ? "text-red-500" : isPlayerVariant ? "text-zinc-300" : "text-zinc-500"} />
                                     </button>
                                 </div>
                             );
                         })}
                     </div>
                 ) : isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
-                        <div className="w-8 h-8 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                    <div className="flex h-full flex-col items-center justify-center gap-4 text-zinc-400">
+                        <div className={cn("h-8 w-8 animate-spin rounded-full border-4", isPlayerVariant ? "border-white/20 border-t-white" : "border-purple-500/30 border-t-purple-500")} />
                         <span className="text-sm font-medium animate-pulse">Fetching lyrics...</span>
                     </div>
                 ) : (
-                    <div className="flex items-center justify-center h-full text-zinc-500">
+                    <div className="flex h-full items-center justify-center text-zinc-400">
                         No lyrics available
                     </div>
                 )}

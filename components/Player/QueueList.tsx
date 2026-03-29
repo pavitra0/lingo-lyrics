@@ -1,10 +1,10 @@
 "use client";
 
-import { usePlayer, Song } from "@/lib/contexts/PlayerContext";
+import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { cn } from "@/lib/utils";
 import { X, Play } from "lucide-react";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { MusicImage } from "@/components/Shared/MusicImage";
 
 interface QueueListProps {
     isOpen: boolean;
@@ -46,7 +46,7 @@ export function QueueList({ isOpen, onClose }: QueueListProps) {
                                         onClick={() => playSong(song)}
                                     >
                                         <div className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-zinc-800">
-                                            {song.image && <Image src={song.image} alt={song.title} fill className="object-cover" />}
+                                            <MusicImage src={song.image} alt={song.title} fill className="object-cover" fallbackIconSize={16} />
                                             <div className={cn("absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition", isCurrent && "opacity-100")}>
                                                 {isCurrent ? (
                                                     <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse" />
