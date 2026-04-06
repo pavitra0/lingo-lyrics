@@ -49,8 +49,12 @@ const getSaturation = ({ r, g, b }: RgbColor) => {
 export const isUnavailableMusicImage = (src?: string | null) => {
     if (!src) return true;
 
-    const normalizedSrc = src.toLowerCase();
+    const normalizedSrc = src.trim().toLowerCase();
     return (
+        normalizedSrc.length === 0 ||
+        normalizedSrc === "undefined" ||
+        normalizedSrc === "null" ||
+        normalizedSrc === "[object object]" ||
         normalizedSrc.includes("default_playlist") ||
         normalizedSrc.includes("default_album") ||
         normalizedSrc.includes("default_artist") ||
@@ -59,8 +63,29 @@ export const isUnavailableMusicImage = (src?: string | null) => {
     );
 };
 
-export const resolveMusicImageSrc = (src?: string | null) =>
-    isUnavailableMusicImage(src) ? MUSIC_PLACEHOLDER_SRC : src;
+export const resolveMusicImageSrc = (src?: string | null) => {
+    if (!src) return MUSIC_PLACEHOLDER_SRC;
+
+    const normalizedSrc = src.trim();
+    if (isUnavailableMusicImage(normalizedSrc)) {
+        return MUSIC_PLACEHOLDER_SRC;
+    }
+
+    if (normalizedSrc.startsWith("//")) {
+        return `https:${normalizedSrc}`;
+    }
+
+    if (
+        normalizedSrc.startsWith("/") ||
+        normalizedSrc.startsWith("data:") ||
+        normalizedSrc.startsWith("blob:") ||
+        /^https?:\/\//i.test(normalizedSrc)
+    ) {
+        return normalizedSrc;
+    }
+
+    return MUSIC_PLACEHOLDER_SRC;
+};
 
 export const applyCoverThemePalette = (palette: CoverThemePalette) => {
     const root = document.documentElement;

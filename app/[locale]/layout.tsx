@@ -5,7 +5,6 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { MusicPlayer } from "@/components/Player/MusicPlayer";
 import { Sidebar } from "@/components/Navigation/Sidebar";
-import ThemeSwitcher from "@/components/Shared/ThemeSwitcher";
 import { BottomNav } from "@/components/Navigation/BottomNav";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
@@ -37,7 +36,7 @@ export default async function RootLayout({
   const { locale } = await params;
 
   // Ensure that the incoming `locale` is valid
-  if (!routing.locales.includes(locale as any)) {
+  if (!routing.locales.includes(locale as (typeof routing.locales)[number])) {
     notFound();
   }
 
@@ -55,9 +54,6 @@ export default async function RootLayout({
             <div className="flex h-screen overflow-hidden">
               <Sidebar />
               <main className="flex-1 overflow-y-auto pb-32 md:pb-24 relative z-0">
-                <div className="absolute top-4 right-4 md:top-6 md:right-8 z-50">
-                  <ThemeSwitcher />
-                </div>
                 {children}
               </main>
             </div>

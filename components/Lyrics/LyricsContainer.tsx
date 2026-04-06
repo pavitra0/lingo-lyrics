@@ -70,6 +70,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
     // Language State
     const [targetLang, setTargetLang] = useState("en"); // Default default
     const isPlayerVariant = variant === "player";
+    const pressableButtonClass = "transform-gpu transition duration-150 ease-out active:scale-95";
 
     // Load preference on mount
     useEffect(() => {
@@ -313,6 +314,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                     onClick={() => setShowTranslation(!showTranslation)}
                     className={cn(
                         "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all",
+                        pressableButtonClass,
                         isPlayerVariant && "px-3",
                         showTranslation
                             ? "border-white bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.25)]"
@@ -332,6 +334,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                             onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
                             className={cn(
                                 "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all backdrop-blur-md",
+                                pressableButtonClass,
                                 isPlayerVariant
                                     ? "border-white/15 bg-transparent text-zinc-200 hover:bg-white/10 hover:text-white"
                                     : "border-zinc-700 bg-black/40 text-zinc-300 hover:border-zinc-500 hover:text-white"
@@ -359,7 +362,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                             fetchingRef.current.clear(); // Explicitly clear any pending
                                             setIsLangMenuOpen(false); // Close menu
                                         }}
-                                        className={cn("px-4 py-2 text-left text-xs font-medium transition-colors hover:bg-white/10", targetLang === lang.code ? "text-white" : "text-zinc-400")}
+                                        className={cn("px-4 py-2 text-left text-xs font-medium transition-colors hover:bg-white/10 active:scale-[0.98]", targetLang === lang.code ? "text-white" : "text-zinc-400")}
                                     >
                                         {lang.name}
                                     </button>
@@ -428,7 +431,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                     <button
                                         onClick={(e) => { e.stopPropagation(); toggleFavorite(line); }}
                                         className={cn(
-                                            "absolute right-0 p-2 opacity-0 group-hover:opacity-100 transition",
+                                            "absolute right-0 p-2 opacity-0 group-hover:opacity-100 transition transform-gpu duration-150 ease-out active:scale-95",
                                             isFav && "opacity-100 text-red-500"
                                         )}
                                     >

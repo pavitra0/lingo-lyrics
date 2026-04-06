@@ -3,17 +3,52 @@
 import { useEffect, useState, useRef } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { searchSongs, searchAlbums, searchArtists, searchPlaylists, getHomeModules, getAlbumById, getPlaylistById, JioSaavnSong, JioSaavnAlbum, JioSaavnArtist, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
+import { searchSongs, searchAlbums, searchArtists, searchPlaylists, getHomeModules, getPlaylistById, JioSaavnSong, JioSaavnAlbum, JioSaavnArtist, JioSaavnPlaylist } from "@/lib/api/jiosaavn";
 import { getSearchSuggestions } from "@/lib/api/suggestions";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
 import { useRouter } from "@/i18n/routing";
-import Image from "next/image";
 import SectionHeader from "@/components/Home/SectionHeader";
 import HorizontalScroll from "@/components/Home/HorizontalScroll";
 import SongCard from "@/components/Home/SongCard";
 import CompactSongCard from "@/components/Home/CompactSongCard";
 import { useTranslations } from "next-intl";
 import { useTheme } from "@/lib/contexts/ThemeContext";
+
+type SearchSectionType = "song" | "album" | "artist" | "playlist" | "chart";
+
+type SearchableImage = Array<{ url?: string; link?: string }> | string | undefined;
+
+type SearchableItem = {
+  id: string;
+  name?: string;
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  header_desc?: string;
+  artist?: string;
+  primaryArtists?: string;
+  artistId?: string;
+  artists?: {
+    primary?: Array<{
+      id?: string;
+      name?: string;
+    }>;
+  };
+  image?: SearchableImage;
+  downloadUrl?: Array<{ url?: string }>;
+  url?: string;
+  duration?: string | number;
+  language?: string;
+};
+
+type HomeModulesData = {
+  trending?: {
+    songs?: JioSaavnSong[];
+    albums?: JioSaavnAlbum[];
+  };
+  albums?: JioSaavnAlbum[];
+  charts?: SearchableItem[];
+};
 
 export default function Home() {
   const t = useTranslations("Home");
@@ -29,8 +64,9 @@ export default function Home() {
   }>({ songs: [], albums: [], artists: [], playlists: [] });
 
   const [loading, setLoading] = useState(false);
-  const [homeData, setHomeData] = useState<any>(null);
-  const [recentlyPlayed, setRecentlyPlayed] = useState<any[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [homeData, setHomeData] = useState<HomeModulesData | null>(null);
+  const [recentlyPlayed, setRecentlyPlayed] = useState<SearchableItem[]>([]);
   const { playSong } = usePlayer();
   const router = useRouter();
 
@@ -46,7 +82,7 @@ export default function Home() {
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch mood data when activeChip changes
   useEffect(() => {
@@ -104,15 +140,27 @@ export default function Home() {
 
     searchTimeout.current = setTimeout(async () => {
       if (val.trim().length > 1) {
-        const data = await getSearchSuggestions(val);
-        setSuggestions(data);
-        setShowSuggestions(true);
+        try {
+          const data = await getSearchSuggestions(val);
+          setSuggestions(data);
+          setShowSuggestions(data.length > 0);
+        } catch (error) {
+          console.error("Failed to load search suggestions", error);
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
       } else {
         setSuggestions([]);
         setShowSuggestions(false);
       }
     }, 300);
   };
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    };
+  }, []);
 
   useEffect(() => {
     const initHome = async () => {
@@ -140,22 +188,36 @@ export default function Home() {
   const executeSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults({ songs: [], albums: [], artists: [], playlists: [] });
+      setSearchError(null);
       return;
     }
 
     setQuery(searchQuery);
     setShowSuggestions(false);
     setLoading(true);
+    setSearchError(null);
 
-    const [songs, albums, artists, playlists] = await Promise.all([
-      searchSongs(searchQuery),
-      searchAlbums(searchQuery),
-      searchArtists(searchQuery),
-      searchPlaylists(searchQuery)
-    ]);
+    try {
+      const [songs, albums, artists, playlists] = await Promise.all([
+        searchSongs(searchQuery),
+        searchAlbums(searchQuery),
+        searchArtists(searchQuery),
+        searchPlaylists(searchQuery)
+      ]);
 
-    setResults({ songs, albums, artists, playlists });
-    setLoading(false);
+      setResults({
+        songs: songs || [],
+        albums: albums || [],
+        artists: artists || [],
+        playlists: playlists || []
+      });
+    } catch (error) {
+      console.error("Search failed", error);
+      setResults({ songs: [], albums: [], artists: [], playlists: [] });
+      setSearchError("Could not complete search right now.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -170,15 +232,15 @@ export default function Home() {
     setActiveChip(chip);
   };
 
-  const handlePlay = (item: JioSaavnSong | any) => {
+  const handlePlay = (item: SearchableItem) => {
     // Handle both JioSaavnSong and stored history item structure
     const image = item.image && Array.isArray(item.image) ? item.image[item.image.length - 1]?.url : (typeof item.image === 'string' ? item.image : "");
     const downloadUrl = item.downloadUrl && Array.isArray(item.downloadUrl) ? item.downloadUrl[item.downloadUrl.length - 1]?.url : item.url;
 
     playSong({
       id: item.id,
-      title: item.name || item.title,
-      artist: item.primaryArtists || item.artist || item.subtitle,
+      title: item.name || item.title || "Unknown Title",
+      artist: item.primaryArtists || item.artist || item.subtitle || "Unknown Artist",
       artistId: item.artistId || item.artists?.primary?.[0]?.id,
       image: image || "",
       url: downloadUrl || "",
@@ -187,7 +249,7 @@ export default function Home() {
     });
   };
 
-  const normalizeItem = (item: any, type: "song" | "album" | "artist" | "playlist" | "chart") => {
+  const normalizeItem = (item: SearchableItem, type: SearchSectionType) => {
     let image = "";
     if (Array.isArray(item.image)) {
       image = item.image[item.image.length - 1]?.link || item.image[item.image.length - 1]?.url || "";
@@ -204,7 +266,7 @@ export default function Home() {
     return { id: item.id, title, subtitle, image, type, original: item };
   };
 
-  const renderSection = (title: string, items: any[], type: "song" | "album" | "artist" | "playlist" | "chart") => {
+  const renderSection = (title: string, items: SearchableItem[], type: SearchSectionType) => {
     if (!items || items.length === 0) return null;
 
     return (
@@ -354,7 +416,10 @@ export default function Home() {
             {renderSection("Albums", results.albums, "album")}
             {renderSection("Artists", results.artists, "artist")}
             {renderSection("Playlists", results.playlists, "playlist")}
-            {results.songs.length === 0 && results.albums.length === 0 && <div className="text-center text-zinc-500">No results found.</div>}
+            {searchError && <div className="text-center text-zinc-500">{searchError}</div>}
+            {!searchError && results.songs.length === 0 && results.albums.length === 0 && results.artists.length === 0 && results.playlists.length === 0 && (
+              <div className="text-center text-zinc-500">No results found.</div>
+            )}
           </div>
         )
       }
@@ -434,7 +499,7 @@ export default function Home() {
             {homeData && (
               <>
                 {/* Mixed for you - using Trending Songs for now */}
-                {homeData.trending && renderSection(t("trending"), homeData.trending.songs, "song")}
+                {homeData.trending && renderSection(t("trending"), homeData.trending.songs || [], "song")}
 
                 {/* From the community - using Playlists/Albums if available, or just Charts */}
                 {homeData.charts && renderSection(t("top_charts"), homeData.charts, "chart")}
@@ -443,7 +508,7 @@ export default function Home() {
                 {homeData.albums && renderSection(t("new_releases"), homeData.albums, "album")}
 
                 {/* Trending Albums */}
-                {homeData.trending && renderSection(t("trending"), homeData.trending.albums, "album")}
+                {homeData.trending && renderSection(t("trending"), homeData.trending.albums || [], "album")}
               </>
             )}
           </div>
