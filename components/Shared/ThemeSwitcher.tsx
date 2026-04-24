@@ -151,7 +151,6 @@ export default function ThemeSwitcher() {
         { id: "sans", label: "Sans Serif", familyClass: "font-sans" },
         { id: "mono", label: "Monospace", familyClass: "font-mono" },
         { id: "serif", label: "Serif", familyClass: "font-serif" },
-        { id: "comic", label: "Comic", familyClass: "font-[Comic_Sans_MS]" },
         { id: "dyslexic", label: "OpenDyslexic", familyClass: "font-[OpenDyslexic]" },
     ];
 

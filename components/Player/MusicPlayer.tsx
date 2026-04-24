@@ -2,22 +2,44 @@
 
 import React, { useEffect } from "react";
 import { usePlayer } from "@/lib/contexts/PlayerContext";
-import { Play, Pause, SkipBack, SkipForward, Volume2, GripHorizontal, ChevronDown, Shuffle, Repeat, Maximize2, Heart, Captions, X, ChevronUp } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, GripHorizontal, ChevronDown, Shuffle, Repeat, Maximize2, Heart, Captions, X, ChevronUp, Mic2, AudioLines, ScanEye, Cast, Download, ListMusic, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/routing";
 import { QueueList } from "./QueueList";
 import { useState } from "react";
 import { getSyncedLyrics, LrcLibSong } from "@/lib/api/lyrics";
+import { getSongById } from "@/lib/api/jiosaavn";
 import { LyricsContainer } from "@/components/Lyrics/LyricsContainer";
 import { MusicImage } from "@/components/Shared/MusicImage";
 import { applyCoverThemePalette, clearCoverThemePalette, extractCoverThemePalette, isUnavailableMusicImage } from "@/lib/musicArt";
 
+function MovingTitle({ title, className, threshold = 28 }: { title: string; className?: string; threshold?: number }) {
+    if (title.length <= threshold) {
+        return (
+            <span className={cn("block min-w-0 max-w-full truncate", className)} title={title}>
+                {title}
+            </span>
+        );
+    }
+
+    return (
+        <span className={cn("block min-w-0 max-w-full overflow-hidden whitespace-nowrap", className)} title={title} aria-label={title}>
+            <span className="block truncate lg:hidden">
+                {title}
+            </span>
+            <span className="music-title-marquee hidden lg:inline-flex">
+                <span>{title}</span>
+                <span aria-hidden="true">{title}</span>
+            </span>
+        </span>
+    );
+}
 
 export function MusicPlayer() {
     const router = useRouter();
     const {
         currentSong, isPlaying, togglePlay, progress, duration, seek, volume, setVolume,
-        playNext, playPrevious, shuffle, toggleShuffle, repeat, toggleRepeat
+        playNext, playPrevious, shuffle, toggleShuffle, repeat, toggleRepeat, queue
     } = usePlayer();
 
     const [showQueue, setShowQueue] = useState(false);
@@ -25,6 +47,7 @@ export function MusicPlayer() {
     const [likedSongs, setLikedSongs] = useState<string[]>([]); // Keep IDs for UI state
     const [lyricsData, setLyricsData] = useState<LrcLibSong | null>(null);
     const [showLyrics, setShowLyrics] = useState(false);
+    const [showMovingBg, setShowMovingBg] = useState(false);
     const [lyricsLoading, setLyricsLoading] = useState(false);
     const [showAllArtists, setShowAllArtists] = useState(false);
 
@@ -47,17 +70,12 @@ export function MusicPlayer() {
         setShowAllArtists(false);
 
         const fetchLyrics = async () => {
-            // Only fetch if lyrics view is active
-            if (!showLyrics) return;
-
             setLyricsLoading(true);
 
             console.log("MusicPlayer: Fetching lyrics for:", currentSong);
 
-            // Artist name is now normalized in PlayerContext, so we can trust currentSong.artist
             let artistName = currentSong.artist;
 
-            // Safety fallback just in case (e.g. if currentSong structure was bypassed)
             if (!artistName) {
                 const rawSong = currentSong as { artists?: { primary?: Array<{ name?: string }> } };
                 if (rawSong.artists?.primary?.[0]?.name) artistName = rawSong.artists.primary[0].name;
@@ -65,7 +83,6 @@ export function MusicPlayer() {
 
             artistName = String(artistName || "");
 
-            // Cleanup: Take first artist if comma separated or has '&'
             if (artistName) {
                 artistName = artistName.split(',')[0].split('&')[0].trim();
             }
@@ -95,7 +112,7 @@ export function MusicPlayer() {
         };
 
         fetchLyrics();
-    }, [currentSong, showLyrics]);
+    }, [currentSong]);
 
     useEffect(() => {
         if (!currentSong?.image || isUnavailableMusicImage(currentSong.image)) {
@@ -173,19 +190,46 @@ export function MusicPlayer() {
 
     const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
     const clampedProgressPercent = Math.max(0, Math.min(progressPercent, 100));
-    const artistList = currentSong.artist
-        .split(",")
-        .map((artist) => artist.trim())
-        .filter(Boolean);
-    const artistLabel = formatArtistLabel(currentSong.artist);
-    const activeArtistId = currentSong.artistId;
+    const artistLinks = currentSong.artistLinks?.length
+        ? currentSong.artistLinks
+        : currentSong.artist
+            .split(",")
+            .map((artist, index) => ({ name: artist.trim(), id: index === 0 ? currentSong.artistId : undefined }))
+            .filter((artist) => artist.name.length > 0);
+    const visibleArtists = showAllArtists ? artistLinks : artistLinks.slice(0, 2);
+    const artistLabel = formatArtistLabel(artistLinks.map((artist) => artist.name).join(", "));
+    const activeArtistId = artistLinks.find((artist) => artist.id)?.id || currentSong.artistId;
     const hasRealCover = !!currentSong.image && !isUnavailableMusicImage(currentSong.image);
-    const handleArtistClick = (event?: React.MouseEvent) => {
+    const handleArtistClick = async (artistId: string | undefined, artistName: string | undefined, event?: React.MouseEvent) => {
         event?.stopPropagation();
-        if (!activeArtistId) return;
+        let targetArtistId = artistId;
+
+        if (!targetArtistId && artistName) {
+            try {
+                // Try searching for the artist in primary artists first
+                const songData = await getSongById(currentSong.id);
+                const normalizedSearch = artistName.trim().toLowerCase();
+                
+                const found = songData.artists?.primary?.find((artist) => (
+                    artist.name?.trim().toLowerCase() === normalizedSearch
+                )) || songData.artists?.featured?.find((artist) => (
+                    artist.name?.trim().toLowerCase() === normalizedSearch
+                ));
+
+                targetArtistId = found?.id;
+            } catch (error) {
+                console.error("Failed to resolve artist link", error);
+            }
+        }
+
+        if (!targetArtistId) {
+            console.warn("Artist ID not found for navigation:", artistName);
+            return;
+        }
+
         setIsMaximized(false);
         setShowLyrics(false);
-        router.push(`/artist/${activeArtistId}`);
+        router.push(`/artist/${targetArtistId}`);
     };
     const handleSeek = (event: React.MouseEvent<HTMLDivElement>) => {
         if (!duration) return;
@@ -193,201 +237,317 @@ export function MusicPlayer() {
         const pos = (event.clientX - rect.left) / rect.width;
         seek(pos * duration);
     };
-    const utilityButtonClass = "flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.06] text-zinc-200 backdrop-blur-xl transition hover:bg-white/[0.12] hover:text-white md:h-14 md:w-14";
+    const utilityButtonClass = cn(
+        "flex items-center justify-center rounded-2xl border border-white/15 bg-white/[0.06] text-zinc-200 backdrop-blur-xl transition hover:bg-white/[0.12] hover:text-white",
+        showLyrics ? "h-10 w-10 md:h-12 md:w-12" : "h-12 w-12 md:h-14 md:w-14"
+    );
     const utilityButtonActiveClass = "bg-white text-black hover:bg-white";
     const pressableButtonClass = "transform-gpu transition duration-150 ease-out active:scale-95";
-    const pressableSoftClass = "transform-gpu transition duration-150 ease-out active:scale-[0.97]";
+    const pressableSoftClass = "transform-gpu transition duration-150 ease-out active:scale-[0.98]";
 
     return (
         <>
             {/* Maximized Player Overlay */}
             <div className={cn(
-                "fixed inset-0 z-[60] flex flex-col overflow-hidden bg-black transition-all duration-500 ease-in-out transform",
-                isMaximized ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"
+                "fixed inset-0 z-[60] flex h-dvh w-screen max-w-full flex-col overflow-hidden bg-black transition-all duration-300 ease-in-out",
+                isMaximized ? "visible opacity-100" : "invisible opacity-0 pointer-events-none translate-y-12"
             )}>
                 {hasRealCover && (
-                    <>
-                        <div className="absolute inset-[-12%] pointer-events-none">
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden bg-black">
+                        {/* Static background that is always there but fades when swirling is active */}
+                        <div className={cn("absolute inset-[-15%] transition-all duration-1000", showMovingBg ? "opacity-20 scale-110 blur-[120px]" : "opacity-40 scale-100 blur-[100px]")}>
                             <MusicImage
                                 src={currentSong.image}
                                 alt={currentSong.title}
                                 fill
-                                className="object-cover scale-110 blur-3xl saturate-125 opacity-45"
+                                className="object-cover saturate-150"
                                 sizes="100vw"
                             />
                         </div>
-                        <div className="absolute inset-0 bg-black/40 pointer-events-none" />
-                    </>
-                )}
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_38%)]" />
 
-                {/* Header */}
-                <div className="z-10 flex items-center justify-between px-5 pb-1 pt-5 md:px-8 md:pb-2 md:pt-7">
-                    <button
-                        onClick={() => setIsMaximized(false)}
-                        className={cn("flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-foreground backdrop-blur-xl transition hover:bg-white/[0.12]", pressableButtonClass)}
-                    >
-                        <ChevronDown size={24} />
-                    </button>
-                    <div className="flex flex-col items-center text-center">
-                        <span className="mb-1 text-[10px] font-semibold uppercase tracking-[0.32em] text-zinc-400 md:text-[11px]">Now Playing</span>
-                        <span className="max-w-[16rem] truncate text-sm font-semibold text-zinc-200 md:max-w-[24rem] md:text-base">{currentSong.title}</span>
-                    </div>
-                    <div className="h-11 w-11" />
-                </div>
-
-                <div className="z-10 mx-auto flex h-full w-full max-w-7xl flex-1 flex-col overflow-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 md:px-8 md:pb-10">
-                    <div className="mx-auto grid h-full w-full max-w-[25rem] grid-rows-[auto_1fr] gap-5 md:max-w-[30rem] lg:max-w-7xl lg:grid-cols-[minmax(20rem,30rem)_minmax(26rem,1fr)] lg:grid-rows-1 lg:items-center lg:gap-10">
-                        <div className="mx-auto w-full lg:mx-0">
-                            <div className="relative aspect-square overflow-hidden rounded-[2rem] border border-white/10 bg-black/30 shadow-[0_24px_100px_rgba(0,0,0,0.42)]">
-                                {showLyrics ? (
-                                    <div className="h-full bg-black/10 px-3 py-4 backdrop-blur-2xl">
-                                        <LyricsContainer
-                                            key={currentSong.id}
-                                            syncedLyrics={lyricsData?.syncedLyrics || ""}
-                                            plainLyrics={lyricsData?.plainLyrics}
-                                            artist={currentSong.artist}
-                                            title={currentSong.title}
-                                            songId={currentSong.id}
-                                            language={currentSong.language}
-                                            isLoading={lyricsLoading}
-                                            className="max-h-full max-w-none"
-                                            variant="player"
-                                        />
-                                    </div>
-                                ) : (
-                                    <>
-                                        {hasRealCover && (
-                                            <MusicImage
-                                                src={currentSong.image}
-                                                alt={currentSong.title}
-                                                fill
-                                                className="object-cover scale-105 opacity-20 blur-3xl"
-                                                sizes="(max-width: 1024px) 92vw, 29rem"
-                                            />
-                                        )}
-                                        <MusicImage
-                                            src={currentSong.image}
-                                            alt={currentSong.title}
-                                            fill
-                                            className="object-cover"
-                                            sizes="(max-width: 1024px) 92vw, 29rem"
-                                            fallbackIconSize={42}
-                                        />
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex min-h-0 flex-1 flex-col gap-5 rounded-[2rem] border border-white/10 bg-black/20 p-5 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.28)] md:gap-6 md:p-7 lg:h-[min(40rem,100%)] lg:justify-between">
-                            <div className="min-w-0">
-                                <h2 className="mb-3 text-[2.35rem] font-bold leading-[0.98] text-zinc-100 md:text-[3.4rem]">{currentSong.title}</h2>
-                                <div className="space-y-3 text-base text-zinc-300 md:text-lg">
-                                    <div className="flex flex-wrap items-start gap-3">
-                                        <div className="min-w-0 flex-1">
-                                            <button
-                                                type="button"
-                                                onClick={handleArtistClick}
-                                                disabled={!activeArtistId}
-                                                className={cn(
-                                                    "inline-flex max-w-full items-center rounded-full border border-white/12 bg-white/[0.08] px-4 py-2 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.14] hover:text-white disabled:cursor-default disabled:opacity-80 md:text-base",
-                                                    pressableSoftClass,
-                                                    showAllArtists ? "whitespace-normal" : "truncate"
-                                                )}
-                                                title={currentSong.artist}
-                                            >
-                                                <span className={cn("max-w-full", showAllArtists ? "whitespace-normal" : "truncate")}>
-                                                    {showAllArtists ? currentSong.artist : artistLabel}
-                                                </span>
-                                            </button>
-                                        </div>
-                                        {artistList.length > 2 && (
-                                            <button onClick={() => setShowAllArtists((value) => !value)} className={cn("inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/[0.12]", pressableSoftClass)}>
-                                                {showAllArtists ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                                {showAllArtists ? "Less" : "More"}
-                                            </button>
-                                        )}
-                                    </div>
-                                    {showAllArtists && artistList.length > 2 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {artistList.map((artistName, index) => (
-                                                <span key={`${artistName}-${index}`} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-sm text-zinc-200">
-                                                    {artistName}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
+                        {/* Swirling Blob 1 */}
+                        {showMovingBg && (
+                            <>
+                                <div 
+                                    className="absolute top-[-30%] left-[-10%] w-[100%] h-[120%] origin-center rounded-[40%_60%_70%_30%_/_40%_50%_60%_50%] opacity-70 mix-blend-screen animate-in fade-in duration-1000"
+                                    style={{ animation: 'swirl 25s linear infinite' }}
+                                >
+                                    <MusicImage src={currentSong.image} alt={currentSong.title} fill className="object-cover blur-[100px] saturate-200" sizes="100vw" />
                                 </div>
+                                {/* Swirling Blob 2 */}
+                                <div 
+                                    className="absolute bottom-[-30%] right-[-10%] w-[100%] h-[120%] origin-center rounded-[60%_40%_30%_70%_/_60%_50%_40%_50%] opacity-70 mix-blend-screen animate-in fade-in duration-1000"
+                                    style={{ animation: 'swirl-reverse 30s linear infinite' }}
+                                >
+                                    <MusicImage src={currentSong.image} alt={currentSong.title} fill className="object-cover blur-[100px] saturate-200" sizes="100vw" />
+                                </div>
+                            </>
+                        )}
+                        <div className="absolute inset-0 bg-black/30 pointer-events-none transition-colors duration-1000" />
+                    </div>
+                )}
+
+                {/* Desktop View (lg+) */}
+                <div className="relative z-10 hidden h-full w-full flex-row overflow-hidden lg:flex">
+                    {/* Top Left Controls */}
+                    <div className="absolute left-6 top-6 z-20 flex items-center gap-4">
+                        <button
+                            onClick={() => setIsMaximized(false)}
+                            className={cn("flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20", pressableButtonClass)}
+                        >
+                            <X size={20} />
+                        </button>
+                        <button 
+                            onClick={() => setShowLyrics(!showLyrics)}
+                            className={cn("flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/20", pressableButtonClass, showLyrics ? "bg-white/20 text-white" : "bg-white/10 text-white/80")}
+                        >
+                            <Mic2 size={20} />
+                        </button>
+                        <button 
+                            onClick={() => setShowMovingBg(!showMovingBg)}
+                            className={cn("flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/20", pressableButtonClass, showMovingBg ? "bg-white/20 text-white" : "bg-white/10 text-white/80")}
+                        >
+                            <AudioLines size={20} />
+                        </button>
+                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80 transition hover:bg-white/20">
+                            <ScanEye size={20} />
+                        </button>
+                    </div>
+
+                    {/* Left Column: Art & Controls */}
+                    <div className={cn("flex flex-col justify-center px-12 h-full transition-all duration-500", showLyrics ? "w-[45%] lg:px-20" : "w-full items-center")}>
+                        <div className={cn("mx-auto w-full transition-all duration-500", showLyrics ? "max-w-[420px]" : "max-w-[540px]")}>
+                            {/* Album Art */}
+                            <div className="relative aspect-square w-full shadow-[0_20px_80px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.02]">
+                                <MusicImage
+                                    src={currentSong.image}
+                                    alt={currentSong.title}
+                                    fill
+                                    className="rounded-xl object-cover"
+                                    sizes="420px"
+                                />
                             </div>
 
-                            <div className="group/prog flex flex-col gap-3">
+                            {/* Song Info */}
+                            <div className="mt-10 flex items-center justify-between">
+                                <div className="flex flex-col gap-1 min-w-0 flex-1 pr-4">
+                                    <div className="flex items-center gap-3">
+                                        <h1 className="text-2xl font-bold text-white truncate">{currentSong.title}</h1>
+                                        <span className="flex-shrink-0 flex items-center rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-zinc-400">HD</span>
+                                    </div>
+                                    <button
+                                        onClick={(e) => handleArtistClick(activeArtistId, artistLabel, e)}
+                                        className="text-left text-lg text-zinc-400 hover:text-white truncate"
+                                    >
+                                        {artistLabel}
+                                    </button>
+                                </div>
+                                <button onClick={toggleLike} className={cn("hover:scale-105 transition-transform", likedSongs.includes(currentSong.id) ? "text-red-500" : "text-white/70 hover:text-white")}>
+                                    <Heart size={24} fill={likedSongs.includes(currentSong.id) ? "currentColor" : "none"} />
+                                </button>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="mt-8 flex flex-col gap-2">
                                 <div
-                                    className="relative cursor-pointer py-2"
+                                    className="group relative h-1.5 w-full cursor-pointer rounded-full bg-white/10"
                                     onClick={handleSeek}
                                 >
-                                    <div className="h-2.5 rounded-full bg-white/12">
-                                        <div
-                                            className="relative h-full rounded-full bg-white"
-                                            style={{ width: `${clampedProgressPercent}%` }}
-                                        >
-                                            <div className="absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-white shadow-[0_0_0_4px_rgba(255,255,255,0.14)]" />
-                                        </div>
+                                    <div
+                                        className="relative h-full rounded-full bg-white"
+                                        style={{ width: `${clampedProgressPercent}%` }}
+                                    >
+                                        <div className="absolute right-0 top-1/2 hidden h-3 w-3 -translate-y-1/2 translate-x-1/2 rounded-full bg-white shadow-xl group-hover:block" />
                                     </div>
                                 </div>
-                                <div className="flex justify-between text-xs font-medium text-zinc-500 md:text-sm">
+                                <div className="flex justify-between text-xs font-medium text-zinc-500">
                                     <span>{formatTime(progress)}</span>
                                     <span>{formatTime(duration)}</span>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between gap-4 md:gap-6">
-                                <button onClick={playPrevious} className={cn("flex h-[4.4rem] w-[4.4rem] items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-zinc-100 backdrop-blur-xl transition hover:bg-white/[0.14] md:h-[5.25rem] md:w-[5.25rem]", pressableButtonClass)}>
-                                    <SkipBack size={30} fill="currentColor" />
+                            {/* Playback Controls */}
+                            <div className="mt-6 flex items-center justify-between px-2">
+                                <button onClick={toggleShuffle} className={cn("text-zinc-500 hover:text-white", shuffle && "text-white")}>
+                                    <Shuffle size={20} />
                                 </button>
-                                <button onClick={togglePlay} className={cn("flex min-w-0 flex-1 items-center justify-center gap-3 rounded-full bg-white px-6 py-5 text-black shadow-[0_16px_50px_rgba(255,255,255,0.16)] transition hover:scale-[1.01] md:min-w-[15rem] md:px-9 md:py-6", pressableSoftClass)}>
-                                    {isPlaying ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
-                                    <span className="text-lg font-semibold md:text-2xl">{isPlaying ? "Pause" : "Play"}</span>
-                                </button>
-                                <button onClick={playNext} className={cn("flex h-[4.4rem] w-[4.4rem] items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-zinc-100 backdrop-blur-xl transition hover:bg-white/[0.14] md:h-[5.25rem] md:w-[5.25rem]", pressableButtonClass)}>
-                                    <SkipForward size={30} fill="currentColor" />
+                                <div className="flex items-center gap-8">
+                                    <button onClick={playPrevious} className="text-white hover:text-zinc-300">
+                                        <SkipBack size={32} fill="currentColor" />
+                                    </button>
+                                    <button
+                                        onClick={togglePlay}
+                                        className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-black transition-transform hover:scale-105 active:scale-95"
+                                    >
+                                        {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+                                    </button>
+                                    <button onClick={playNext} className="text-white hover:text-zinc-300">
+                                        <SkipForward size={32} fill="currentColor" />
+                                    </button>
+                                </div>
+                                <button onClick={toggleRepeat} className={cn("text-zinc-500 hover:text-white", repeat !== "none" && "text-white")}>
+                                    <Repeat size={20} />
                                 </button>
                             </div>
 
-                            <div className="mt-auto flex justify-center pt-2 pb-[calc(0.2rem+env(safe-area-inset-bottom))] lg:pb-0">
-                                <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
-                                    <button
-                                        onClick={() => setShowLyrics((value) => !value)}
-                                        className={cn(
-                                            utilityButtonClass,
-                                            pressableButtonClass,
-                                            showLyrics && utilityButtonActiveClass
-                                        )}
-                                        title={showLyrics ? "Close Lyrics" : "Show Lyrics"}
-                                    >
-                                        {showLyrics ? <X size={20} /> : <Captions size={20} />}
-                                    </button>
-                                    <button
-                                        onClick={toggleLike}
-                                        className={cn(
-                                            utilityButtonClass,
-                                            pressableButtonClass,
-                                            likedSongs.includes(currentSong.id) && "bg-white text-red-500 hover:bg-white"
-                                        )}
-                                        title={likedSongs.includes(currentSong.id) ? "Unlike Song" : "Like Song"}
-                                    >
-                                        <Heart size={20} fill={likedSongs.includes(currentSong.id) ? "currentColor" : "none"} />
-                                    </button>
-                                    <button onClick={toggleShuffle} className={cn(utilityButtonClass, pressableButtonClass, shuffle && "bg-white/[0.16] text-white")}>
-                                        <Shuffle size={20} />
-                                    </button>
-                                    <button className={cn(utilityButtonClass, pressableButtonClass, showQueue && "bg-white/[0.16] text-white")} onClick={() => setShowQueue(!showQueue)}>
-                                        <GripHorizontal size={20} />
-                                    </button>
-                                    <button onClick={toggleRepeat} className={cn(utilityButtonClass, pressableButtonClass, repeat !== "none" && "bg-white/[0.16] text-white")}>
-                                        <Repeat size={20} />
-                                    </button>
+                            {/* Volume Slider */}
+                            <div className="mt-8 flex items-center gap-3 px-4">
+                                <Volume2 size={16} className="text-zinc-500" />
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={1}
+                                    step={0.01}
+                                    value={volume}
+                                    onChange={(e) => setVolume(Number(e.target.value))}
+                                    className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-white/10 accent-white [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column: Lyrics */}
+                    {showLyrics && (
+                        <div className="flex flex-1 min-w-0 flex-col overflow-hidden px-8 lg:px-16 pt-28 pb-12 animate-in fade-in slide-in-from-right-8 duration-500">
+                            <div className="h-full w-full min-w-0">
+                                <LyricsContainer
+                                    key={currentSong.id}
+                                    syncedLyrics={lyricsData?.syncedLyrics || ""}
+                                    plainLyrics={lyricsData?.plainLyrics}
+                                    artist={currentSong.artist}
+                                    title={currentSong.title}
+                                    songId={currentSong.id}
+                                    language={currentSong.language}
+                                    isLoading={lyricsLoading}
+                                    className="h-full max-h-full max-w-none text-left items-start"
+                                    variant="player"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Mobile View (sm to lg) */}
+                <div className="relative z-10 flex h-full w-full flex-col lg:hidden">
+                    {/* Grab Handle */}
+                    <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-white/20" />
+
+                    {/* Header Controls */}
+                    <div className="flex items-center justify-end gap-3 px-6 pt-2">
+                        <button 
+                            onClick={() => setShowMovingBg(!showMovingBg)}
+                            className={cn("flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/20", showMovingBg ? "bg-white/20 text-white" : "bg-white/10 text-white/80")}
+                        >
+                            <AudioLines size={20} />
+                        </button>
+                        <button 
+                            onClick={() => setShowLyrics(!showLyrics)}
+                            className={cn("flex h-10 w-10 items-center justify-center rounded-full text-white transition hover:bg-white/20", showLyrics ? "bg-white/20" : "bg-white/10")}
+                        >
+                            <Mic2 size={20} />
+                        </button>
+                    </div>
+
+                    {showLyrics ? (
+                        <>
+                            {/* Song Info Small */}
+                            <div className="flex items-center gap-4 px-6 pt-4 animate-in fade-in duration-300">
+                                <div className="relative h-14 w-14 flex-shrink-0 shadow-lg">
+                                    <MusicImage
+                                        src={currentSong.image}
+                                        alt={currentSong.title}
+                                        fill
+                                        className="rounded-lg object-cover"
+                                        sizes="56px"
+                                    />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <h1 className="text-xl font-bold text-white truncate">{currentSong.title}</h1>
+                                        <span className="flex items-center rounded bg-white/10 px-1 py-0.5 text-[8px] font-bold tracking-wider text-zinc-400">HD</span>
+                                    </div>
+                                    <p className="text-sm text-zinc-400 truncate">{artistLabel}</p>
                                 </div>
                             </div>
+
+                            {/* Lyrics Center */}
+                            <div className="flex-1 overflow-hidden px-6 pt-6 animate-in slide-in-from-bottom-8 fade-in duration-500">
+                                <LyricsContainer
+                                    key={currentSong.id}
+                                    syncedLyrics={lyricsData?.syncedLyrics || ""}
+                                    plainLyrics={lyricsData?.plainLyrics}
+                                    artist={currentSong.artist}
+                                    title={currentSong.title}
+                                    songId={currentSong.id}
+                                    language={currentSong.language}
+                                    isLoading={lyricsLoading}
+                                    variant="player"
+                                    className="text-left items-start"
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex flex-1 flex-col items-center justify-center px-8 pb-4 animate-in zoom-in-95 fade-in duration-500">
+                            <div className="w-full max-w-[320px] aspect-square shadow-[0_20px_80px_rgba(0,0,0,0.5)] relative mb-12">
+                                <MusicImage 
+                                    src={currentSong.image} 
+                                    alt={currentSong.title} 
+                                    fill 
+                                    className="rounded-2xl object-cover" 
+                                    sizes="320px" 
+                                />
+                            </div>
+                            <div className="w-full max-w-[320px] flex items-center justify-between">
+                                <div className="flex flex-col min-w-0 pr-4">
+                                    <h1 className="text-2xl font-bold text-white truncate">{currentSong.title}</h1>
+                                    <span className="text-left text-lg text-zinc-400 truncate">{artistLabel}</span>
+                                </div>
+                                <button onClick={toggleLike} className={cn("hover:scale-105 transition-transform", likedSongs.includes(currentSong.id) ? "text-red-500" : "text-white/70")}>
+                                    <Heart size={28} fill={likedSongs.includes(currentSong.id) ? "currentColor" : "none"} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Bottom Controls */}
+                    <div className="flex flex-col gap-6 px-6 pt-6 pb-12 bg-gradient-to-t from-black/60 to-transparent">
+                        <div className="flex flex-col gap-2">
+                            <div
+                                className="relative h-1.5 w-full cursor-pointer rounded-full bg-white/10"
+                                onClick={handleSeek}
+                            >
+                                <div
+                                    className="relative h-full rounded-full bg-white/80"
+                                    style={{ width: `${clampedProgressPercent}%` }}
+                                >
+                                    <div className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full bg-white shadow-xl" />
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-semibold text-zinc-500">
+                                <span>{formatTime(progress)}</span>
+                                <span>{formatTime(duration)}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <button onClick={toggleShuffle} className={cn("text-zinc-500", shuffle && "text-white")}>
+                                <Shuffle size={20} />
+                            </button>
+                            <button onClick={playPrevious} className="text-white">
+                                <SkipBack size={32} fill="currentColor" />
+                            </button>
+                            <button
+                                onClick={togglePlay}
+                                className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-black"
+                            >
+                                {isPlaying ? <Pause size={36} fill="currentColor" /> : <Play size={36} fill="currentColor" className="ml-1" />}
+                            </button>
+                            <button onClick={playNext} className="text-white">
+                                <SkipForward size={32} fill="currentColor" />
+                            </button>
+                            <button onClick={toggleRepeat} className={cn("text-zinc-500", repeat !== "none" && "text-white")}>
+                                <Repeat size={20} />
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -427,12 +587,12 @@ export function MusicPlayer() {
                                 />
                             </div>
                             <div className="min-w-0">
-                                <h3 className="truncate text-sm font-semibold leading-tight text-foreground md:text-base">{currentSong.title}</h3>
+                                <MovingTitle title={currentSong.title} className="text-sm font-semibold leading-tight text-foreground md:text-base" threshold={30} />
                                 <div className="truncate text-xs text-zinc-400 md:text-sm">
                                     <button
                                         type="button"
                                         className="truncate text-left hover:text-foreground hover:underline disabled:no-underline"
-                                        onClick={handleArtistClick}
+                                        onClick={(event) => handleArtistClick(activeArtistId, artistLabel, event)}
                                         disabled={!activeArtistId}
                                         title={currentSong.artist}
                                     >

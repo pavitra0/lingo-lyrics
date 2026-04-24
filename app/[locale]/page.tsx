@@ -242,6 +242,7 @@ export default function Home() {
       title: item.name || item.title || "Unknown Title",
       artist: item.primaryArtists || item.artist || item.subtitle || "Unknown Artist",
       artistId: item.artistId || item.artists?.primary?.[0]?.id,
+      artists: item.artists,
       image: image || "",
       url: downloadUrl || "",
       duration: typeof item.duration === 'string' ? parseInt(item.duration) : item.duration,

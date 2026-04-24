@@ -37,6 +37,7 @@ export default function PlaylistPage() {
                 title: firstSong.name,
                 artist: firstSong.primaryArtists,
                 artistId: firstSong.artistId,
+                artists: firstSong.artists,
                 image: highQualityImage || "",
                 url: highQualityAudio || "",
                 duration: parseInt(firstSong.duration),

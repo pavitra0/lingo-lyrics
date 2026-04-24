@@ -190,12 +190,14 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
     useEffect(() => {
         if (activeindex !== -1 && scrollRef.current && lines.length > 0 && isSynced) {
-            // Target the inner wrapper's children (the lines)
-            // scrollRef.current is the scrolling container
-            // scrollRef.current.firstElementChild is the py-[50vh] wrapper
+            const scrollContainer = scrollRef.current;
             const activeEl = scrollRef.current.firstElementChild?.children[activeindex] as HTMLElement;
             if (activeEl) {
-                activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                const targetTop = activeEl.offsetTop - scrollContainer.clientHeight / 2 + activeEl.clientHeight / 2;
+                scrollContainer.scrollTo({
+                    top: Math.max(targetTop, 0),
+                    behavior: "smooth",
+                });
             }
         }
     }, [activeindex, lines.length, isSynced]);
@@ -294,7 +296,11 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
     return (
         <div
-            className={cn("relative mx-auto flex h-full max-h-[70vh] w-full max-w-2xl flex-col items-center", isPlayerVariant && "max-h-full max-w-none", className)}
+            className={cn(
+                "relative flex h-full min-h-0 w-full flex-col overflow-hidden",
+                isPlayerVariant ? "max-h-full max-w-none px-4 lg:px-8 items-start" : "mx-auto max-w-2xl max-h-[70vh] items-center",
+                className
+            )}
             onMouseUp={handleMouseUp}
         >
 
@@ -309,17 +315,17 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                 />
             )}
 
-            <div className="relative z-50 mb-4 flex gap-4">
+            <div className={cn("relative z-50 flex gap-4", isPlayerVariant ? "mb-2 shrink-0" : "mb-4")}>
                 <button
                     onClick={() => setShowTranslation(!showTranslation)}
                     className={cn(
                         "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all",
                         pressableButtonClass,
-                        isPlayerVariant && "px-3",
+                        isPlayerVariant && "px-3 py-1",
                         showTranslation
                             ? "border-white bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.25)]"
                             : isPlayerVariant
-                                ? "border-white/15 bg-transparent text-zinc-200 hover:bg-white/10 hover:text-white"
+                                ? "border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md hover:bg-white/15 hover:text-white"
                                 : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
                     )}
                     title={showTranslation ? "Translation On" : "Translate"}
@@ -336,7 +342,7 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                 "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all backdrop-blur-md",
                                 pressableButtonClass,
                                 isPlayerVariant
-                                    ? "border-white/15 bg-transparent text-zinc-200 hover:bg-white/10 hover:text-white"
+                                    ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white"
                                     : "border-zinc-700 bg-black/40 text-zinc-300 hover:border-zinc-500 hover:text-white"
                             )}
                         >
@@ -379,21 +385,23 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
 
             <div
                 className={cn(
-                    "mask-gradient no-scrollbar flex-1 overflow-y-auto w-full px-4",
-                    isPlayerVariant && "bg-transparent"
+                    "mask-gradient no-scrollbar min-h-0 flex-1 overscroll-contain overflow-y-auto w-full px-4",
+                    isPlayerVariant && "bg-transparent px-2"
                 )}
                 ref={scrollRef}
-                style={{ maskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)" }}
+                style={{ maskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)" }}
             >
                 {lines.length > 0 ? (
-                    <div className="py-[50vh]">
+                    <div className={cn(isPlayerVariant ? "py-14" : "py-[35vh]")}>
                         {lines.map((line, i) => {
                             const key = `${songId}|${line.time}|${line.text}`;
                             const isFav = favorites.includes(key);
                             const words = line.text.split(" ");
+                            const isLong = words.length > 10;
+                            const isVeryLong = words.length > 18;
 
                             return (
-                                <div key={i} className="relative group flex items-center justify-center">
+                                <div key={i} className={cn("relative group flex items-center w-full min-w-0", isPlayerVariant ? "justify-start" : "justify-center")}>
                                     <motion.div
                                         initial={{ opacity: 0.5, scale: 0.95, filter: "blur(2px)" }}
                                         animate={{
@@ -402,19 +410,26 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                             color: isSynced && i === activeindex ? "#ffffff" : (isSynced ? "#a1a1aa" : "#e4e4e7"), // Lighter gray for plain lyrics
                                             filter: "blur(0px)" // Removed blur completely
                                         }}
-                                        className={cn(
-                                            "py-4 text-center cursor-pointer transition-all duration-300 w-full origin-center select-none",
-                                            isSynced && i === activeindex ? "font-bold text-2xl md:text-4xl leading-tight" : "text-lg md:text-xl font-medium"
+                                         className={cn(
+                                            "transition-all duration-300 flex-1 min-w-0 origin-left select-none text-left tracking-tight text-balance break-words",
+                                            isPlayerVariant ? "py-3 md:py-4 font-black" : "py-3 text-center font-bold",
+                                            isSynced && i === activeindex
+                                                ? isPlayerVariant
+                                                    ? cn("leading-[1.3] opacity-100 scale-[1.02]", isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl")
+                                                    : "text-xl md:text-3xl leading-tight opacity-100 scale-105"
+                                                : isPlayerVariant
+                                                    ? cn("leading-[1.3] opacity-30 hover:opacity-100", isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl")
+                                                    : "text-lg md:text-2xl opacity-60"
                                         )}
                                         onClick={() => isSynced && seek(line.time)}
                                     >
-                                        <p>
+                                        <p className="px-1 w-full flex flex-wrap">
                                             {words.map((word, wIndex) => (
                                                 <span
                                                     key={wIndex}
                                                     className={cn(
-                                                        "mr-1.5 cursor-pointer transition-colors hover:underline",
-                                                        isPlayerVariant ? "decoration-white/40 hover:text-white" : "decoration-purple-500/50 hover:text-purple-300"
+                                                        "mr-2 cursor-pointer transition-colors hover:underline underline-offset-8 break-all",
+                                                        isPlayerVariant ? "decoration-white/20 hover:text-white" : "decoration-purple-500/50 hover:text-purple-300"
                                                     )}
                                                     onClick={(e) => handleWordClick(e, word)}
                                                 >
@@ -423,10 +438,9 @@ export function LyricsContainer({ syncedLyrics, plainLyrics, title, artist = "Un
                                             ))}
                                         </p>
                                         {showTranslation && translatedLines[i] && (
-                                            <p className={cn("mt-1 text-sm md:text-base", isPlayerVariant ? "text-zinc-300" : "text-purple-400")}>{translatedLines[i]}</p>
+                                            <p className={cn("mt-2", isPlayerVariant ? "text-sm text-zinc-300 md:text-lg font-medium" : "text-sm text-purple-400 md:text-base")}>{translatedLines[i]}</p>
                                         )}
                                     </motion.div>
-
                                     {/* Favorite Button */}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); toggleFavorite(line); }}

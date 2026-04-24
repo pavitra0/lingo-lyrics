@@ -143,6 +143,7 @@ export default function SongPage() {
                         title: songData.name,
                         artist: songData.primaryArtists,
                         artistId: songData.artistId || songData.artists?.primary?.[0]?.id,
+                        artists: songData.artists,
                         image: highQualityImage,
                         url: highQualityAudio,
                         duration: parseInt(songData.duration)

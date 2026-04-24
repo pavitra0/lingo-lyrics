@@ -1,7 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from "react";
-import { getSongRecommendations, JioSaavnSong } from "@/lib/api/jiosaavn";
+import { getSongById, getSongRecommendations, JioSaavnSong } from "@/lib/api/jiosaavn";
+
+export interface SongArtist {
+    id?: string;
+    name: string;
+}
 
 export interface Song {
     id: string;
@@ -12,13 +17,34 @@ export interface Song {
     url: string; // Preview URL or Full URL
     duration?: number;
     artistId?: string;
+    artistLinks?: SongArtist[];
     language?: string;
 }
+
+type PlayableSongInput = {
+    id: string;
+    title?: string;
+    name?: string;
+    artist?: string | string[];
+    album?: string | { name?: string };
+    image?: string | Array<{ link?: string; url?: string }>;
+    url?: string;
+    duration?: string | number;
+    artistId?: string;
+    artistLinks?: SongArtist[];
+    artists?: JioSaavnSong["artists"];
+    primaryArtists?: string;
+    primary_artists?: string;
+    subtitle?: string;
+    description?: string;
+    downloadUrl?: Array<{ link?: string; url?: string }>;
+    language?: string;
+};
 
 interface PlayerContextType {
     currentSong: Song | null;
     isPlaying: boolean;
-    playSong: (song: Song) => void;
+    playSong: (song: PlayableSongInput) => void;
     pauseSong: () => void;
     togglePlay: () => void;
     audioRef: React.RefObject<HTMLAudioElement | null>;
@@ -30,8 +56,8 @@ interface PlayerContextType {
     isLoading: boolean;
     // Queue
     queue: Song[];
-    addToQueue: (song: Song) => void;
-    setQueue: (songs: Song[]) => void;
+    addToQueue: (song: PlayableSongInput) => void;
+    setQueue: (songs: PlayableSongInput[]) => void;
     playNext: () => void;
     playPrevious: () => void;
     shuffle: boolean;
@@ -41,6 +67,34 @@ interface PlayerContextType {
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
+
+const readStoredHistory = (): Song[] => {
+    if (typeof window === "undefined") return [];
+
+    const savedHistory = window.localStorage.getItem("playedSongs");
+    if (!savedHistory) return [];
+
+    try {
+        return JSON.parse(savedHistory) as Song[];
+    } catch (error) {
+        console.error("Failed to parse history", error);
+        return [];
+    }
+};
+
+const readStoredLastSong = (): Song | null => {
+    if (typeof window === "undefined") return null;
+
+    const lastSong = window.localStorage.getItem("lastPlayedSong");
+    if (!lastSong) return null;
+
+    try {
+        return JSON.parse(lastSong) as Song;
+    } catch (error) {
+        console.error("Failed to parse last song", error);
+        return null;
+    }
+};
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
     const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -57,6 +111,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const [repeat, setRepeat] = useState<'none' | 'one' | 'all'>('none');
 
     const audioRef = useRef<HTMLAudioElement>(null);
+    const playRequestRef = useRef(0);
+
+    // Hydration: Load initial state from localStorage on mount
+    useEffect(() => {
+        const lastSong = readStoredLastSong();
+        if (lastSong) setCurrentSong(lastSong);
+
+        const storedHistory = readStoredHistory();
+        if (storedHistory.length > 0) setHistory(storedHistory);
+    }, []);
 
     // Helper to map API languages to ISO codes
     const getLanguageCode = (lang: string): string => {
@@ -82,51 +146,84 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return map[lang?.toLowerCase()] || "en";
     };
 
-    const playSong = (song: any) => {
-        // Normalize raw API data to our Song interface
-        console.log("Raw Song Data in playSong:", song); // DEBUG
-        const normalizedSong: Song = {
+    const buildArtistLinks = (song: PlayableSongInput): SongArtist[] => {
+        if (song.artistLinks?.length) {
+            return song.artistLinks
+                .map((artist) => ({ id: artist.id, name: artist.name.trim() }))
+                .filter((artist) => artist.name.length > 0);
+        }
+
+        if (song.artists?.primary?.length) {
+            return song.artists.primary
+                .map((artist) => ({ id: artist.id, name: artist.name?.trim() || "" }))
+                .filter((artist) => artist.name.length > 0);
+        }
+
+        const artistValue = Array.isArray(song.artist)
+            ? song.artist.join(", ")
+            : song.artist || song.primaryArtists || song.primary_artists || song.subtitle || song.description || "";
+
+        return artistValue
+            .split(",")
+            .map((artist) => artist.trim())
+            .filter(Boolean)
+            .map((name, index) => ({ name, id: index === 0 ? song.artistId : undefined }));
+    };
+
+    const getImageSrc = (image: PlayableSongInput["image"]) => {
+        if (Array.isArray(image) && image.length > 0) {
+            const bestImage = image[image.length - 1];
+            return bestImage.link || bestImage.url || "";
+        }
+
+        return typeof image === "string" ? image : "";
+    };
+
+    const getAudioSrc = (song: PlayableSongInput) => {
+        if (Array.isArray(song.downloadUrl) && song.downloadUrl.length > 0) {
+            const bestAudio = song.downloadUrl[song.downloadUrl.length - 1];
+            return bestAudio.link || bestAudio.url || song.url || "";
+        }
+
+        return song.url || "";
+    };
+
+    const normalizeSong = (song: PlayableSongInput): Song => {
+        const artistLinks = buildArtistLinks(song);
+        const artistName = artistLinks.length > 0
+            ? artistLinks.map((artist) => artist.name).join(", ")
+            : "Unknown Artist";
+        const parsedDuration = typeof song.duration === "string" ? parseInt(song.duration, 10) : song.duration;
+
+        return {
             id: song.id,
-            title: song.title || song.name || "Unknown Title", // Handle 'name' vs 'title'
-            artist: song.artist || "", // Will resolve below
-            album: song.album?.name || song.album || "Unknown Album",
-            image: "", // Will resolve below
-            url: song.url || "",
-            duration: typeof song.duration === 'string' ? parseInt(song.duration) : song.duration,
-            artistId: song.artistId || song.artists?.primary?.[0]?.id || undefined,
-            language: getLanguageCode(song.language),
+            title: song.title || song.name || "Unknown Title",
+            artist: artistName,
+            album: typeof song.album === "string" ? song.album : song.album?.name || "Unknown Album",
+            image: getImageSrc(song.image),
+            url: getAudioSrc(song),
+            duration: Number.isFinite(parsedDuration) ? parsedDuration : undefined,
+            artistId: artistLinks.find((artist) => artist.id)?.id || song.artistId,
+            artistLinks: artistLinks.length > 0 ? artistLinks : undefined,
+            language: getLanguageCode(song.language || ""),
         };
+    };
 
-        // 1. Resolve Artist
-        if (song.artists?.primary?.[0]?.name) {
-            normalizedSong.artist = song.artists.primary[0].name;
+    const isLikelyPageUrl = (url: string) => {
+        try {
+            const parsedUrl = new URL(url);
+            return parsedUrl.hostname === "jiosaavn.com" || parsedUrl.hostname === "www.jiosaavn.com";
+        } catch {
+            return false;
         }
-        else if (!normalizedSong.artist) {
-            if (song.primaryArtists) normalizedSong.artist = song.primaryArtists;
-            else if (song.primary_artists) normalizedSong.artist = song.primary_artists;
-            else if (song.subtitle) normalizedSong.artist = song.subtitle;
-            else if (song.description) normalizedSong.artist = song.description;
-            else if (Array.isArray(song.artist)) normalizedSong.artist = song.artist[0];
-        }
+    };
 
-        // Final cleanup for artist
-        if (Array.isArray(normalizedSong.artist)) {
-            normalizedSong.artist = normalizedSong.artist[0];
-        }
-        if (typeof normalizedSong.artist !== 'string') {
-            normalizedSong.artist = String(normalizedSong.artist || "");
-        }
+    const shouldRepairAudioSource = (song: PlayableSongInput, normalizedSong: Song) => {
+        const alreadyHasDownloadUrl = Array.isArray(song.downloadUrl) && song.downloadUrl.length > 0;
+        return !alreadyHasDownloadUrl && (!normalizedSong.url || isLikelyPageUrl(normalizedSong.url));
+    };
 
-        // 2. Resolve Image (JioSaavn returns array, we need string)
-        if (Array.isArray(song.image) && song.image.length > 0) {
-            // Take the last one (usually highest quality) or first
-            normalizedSong.image = song.image[song.image.length - 1].link || song.image[song.image.length - 1].url || "";
-        } else if (typeof song.image === 'string') {
-            normalizedSong.image = song.image;
-        }
-
-        console.log("Normalized Song for Player:", normalizedSong);
-
+    const startNormalizedSong = (normalizedSong: Song) => {
         setCurrentSong(normalizedSong);
         setIsPlaying(true);
 
@@ -138,48 +235,37 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (!queue.find(s => s.id === normalizedSong.id)) {
             setQueueState([normalizedSong]);
             getSongRecommendations(normalizedSong.id).then(recs => {
-                // ... logic remains similar but we should probably normalize recs too if needed, 
-                // but existing logic manually maps recs so it might be fine.
-                // For now let's keep the existing recommendation logic but using normalizedSong.id
                 if (recs && recs.length > 0) {
-                    const mappedRecs = recs.map(item => {
-                        const highQualityImage = item.image[item.image.length - 1]?.url;
-                        const highQualityAudio = item.downloadUrl[item.downloadUrl.length - 1]?.url;
-                        return {
-                            id: item.id,
-                            title: item.name,
-                            artist: item.primaryArtists,
-                            image: highQualityImage || "",
-                            url: highQualityAudio || "",
-                            duration: parseInt(item.duration),
-                            language: getLanguageCode(item.language),
-                        };
-                    });
+                    const mappedRecs = recs.map(normalizeSong);
                     setQueueState(prev => [...prev, ...mappedRecs]);
                 }
             });
         }
     };
 
-    // Load history & Last Played Song on mount
-    useEffect(() => {
-        const savedHistory = localStorage.getItem("playedSongs");
-        if (savedHistory) {
-            try {
-                setHistory(JSON.parse(savedHistory));
-            } catch (e) { console.error("Failed to parse history", e); }
+    const playSong = (song: PlayableSongInput) => {
+        const requestId = playRequestRef.current + 1;
+        playRequestRef.current = requestId;
+
+        const normalizedSong = normalizeSong(song);
+
+        if (shouldRepairAudioSource(song, normalizedSong)) {
+            void getSongById(normalizedSong.id)
+                .then((freshSong) => {
+                    if (playRequestRef.current !== requestId) return;
+                    startNormalizedSong(normalizeSong(freshSong));
+                })
+                .catch((error) => {
+                    console.error("Failed to repair audio URL", error);
+                    if (playRequestRef.current === requestId) {
+                        startNormalizedSong(normalizedSong);
+                    }
+                });
+            return;
         }
 
-        const lastSong = localStorage.getItem("lastPlayedSong");
-        if (lastSong) {
-            try {
-                const song = JSON.parse(lastSong);
-                setCurrentSong(song);
-                // Don't auto-play
-                setIsPlaying(false);
-            } catch (e) { console.error("Failed to parse last song", e); }
-        }
-    }, []);
+        startNormalizedSong(normalizedSong);
+    };
 
     // Persist Current Song
     useEffect(() => {
@@ -188,46 +274,59 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
     }, [currentSong]);
 
-    const addToQueue = (song: Song) => {
-        setQueueState(prev => [...prev, song]);
+    const addToQueue = (song: PlayableSongInput) => {
+        setQueueState(prev => [...prev, normalizeSong(song)]);
     };
 
-    const setQueue = (songs: Song[]) => {
-        setQueueState(songs);
+    const setQueue = (songs: PlayableSongInput[]) => {
+        setQueueState(songs.map(normalizeSong));
     };
 
-    const pauseSong = () => {
+    const pauseSong = useCallback(() => {
         setIsPlaying(false);
-    };
+    }, []);
 
-    const togglePlay = () => {
-        if (isPlaying) pauseSong();
-        else setIsPlaying(true);
-    };
+    const togglePlay = useCallback(() => {
+        setIsPlaying((playing) => !playing);
+    }, []);
 
-    const seek = (time: number) => {
+    const seek = useCallback((time: number) => {
         if (audioRef.current) {
             audioRef.current.currentTime = time;
             setProgress(time);
         }
-    };
+    }, []);
 
     const playNext = useCallback(() => {
         if (!currentSong) return;
 
         if (repeat === 'one') {
             seek(0);
-            audioRef.current?.play();
+            if (isPlaying) {
+                void audioRef.current?.play();
+            }
+            return;
+        }
+
+        if (queue.length === 0) {
+            setIsPlaying(false);
             return;
         }
 
         const currentIndex = queue.findIndex(s => s.id === currentSong.id);
+        if (currentIndex === -1) {
+            setIsPlaying(false);
+            return;
+        }
 
         if (shuffle) {
-            const nextIndex = Math.floor(Math.random() * queue.length);
-            setCurrentSong(queue[nextIndex]);
+            const playableQueue = queue.length > 1 ? queue.filter((song) => song.id !== currentSong.id) : queue;
+            const nextSong = playableQueue[Math.floor(Math.random() * playableQueue.length)];
+            if (nextSong) {
+                setCurrentSong(nextSong);
+            }
         } else {
-            if (currentIndex !== -1 && currentIndex < queue.length - 1) {
+            if (currentIndex < queue.length - 1) {
                 setCurrentSong(queue[currentIndex + 1]);
             } else if (repeat === 'all') {
                 setCurrentSong(queue[0]);
@@ -236,7 +335,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                 setIsPlaying(false);
             }
         }
-    }, [currentSong, queue, repeat, shuffle]);
+    }, [currentSong, isPlaying, queue, repeat, seek, shuffle]);
 
     const playPrevious = useCallback(() => {
         if (!currentSong) return;
@@ -251,7 +350,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (currentIndex > 0) {
             setCurrentSong(queue[currentIndex - 1]);
         }
-    }, [currentSong, queue]);
+    }, [currentSong, queue, seek]);
 
     const toggleShuffle = () => setShuffle(!shuffle);
     const toggleRepeat = () => {
@@ -280,15 +379,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const handleEnded = () => {
             playNext();
         };
-        const handleError = (e: any) => {
-            console.error("Audio playback error:", e);
+        const handleError = (event: Event) => {
+            console.error("Audio playback error:", event);
             setIsLoading(false);
-            // Auto skip if error
-            if (queue.length > 0) {
-                setTimeout(() => playNext(), 1000);
-            } else {
-                setIsPlaying(false);
-            }
+            setIsPlaying(false);
         };
         const handleWaiting = () => setIsLoading(true);
         const handleCanPlay = () => setIsLoading(false);
@@ -314,7 +408,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             audio.removeEventListener('canplay', handleCanPlay);
             audio.removeEventListener('playing', handlePlaying);
         }
-    }, [playNext, queue]); // Depend on queue for auto-skip logic
+    }, [playNext]);
 
     useEffect(() => {
         if (audioRef.current) {

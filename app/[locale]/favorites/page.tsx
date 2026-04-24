@@ -165,6 +165,7 @@ function SavedLyricsTab() {
                     title: song.name,
                     artist: song.primaryArtists,
                     artistId: song.artistId || song.artists?.primary?.[0]?.id,
+                    artists: song.artists,
                     image: highQualityImage || "",
                     url: highQualityAudio || "",
                     duration: parseInt(song.duration),
