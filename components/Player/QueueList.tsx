@@ -1,6 +1,6 @@
 "use client";
 
-import { usePlayer } from "@/lib/contexts/PlayerContext";
+import { type Song, usePlayer } from "@/lib/contexts/PlayerContext";
 import { cn } from "@/lib/utils";
 import { X, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,12 +9,26 @@ import { MusicImage } from "@/components/Shared/MusicImage";
 interface QueueListProps {
     isOpen: boolean;
     onClose: () => void;
+    songs?: Song[];
+    eyebrow?: string;
+    title?: string;
+    emptyMessage?: string;
+    className?: string;
 }
 
-export function QueueList({ isOpen, onClose }: QueueListProps) {
+export function QueueList({
+    isOpen,
+    onClose,
+    songs,
+    eyebrow = "Queue",
+    title = "Up Next",
+    emptyMessage = "Queue is empty",
+    className,
+}: QueueListProps) {
     const { queue, currentSong, playSong } = usePlayer();
     const pressableButtonClass = "transform-gpu transition duration-150 ease-out active:scale-95";
     const pressableSoftClass = "transform-gpu transition duration-150 ease-out active:scale-[0.98]";
+    const listSongs = songs ?? queue;
 
     return (
         <AnimatePresence>
@@ -23,12 +37,15 @@ export function QueueList({ isOpen, onClose }: QueueListProps) {
                     initial={{ opacity: 0, y: 50, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 50, scale: 0.95 }}
-                    className="absolute bottom-[calc(100%+0.9rem)] right-0 z-50 flex max-h-[60vh] w-[min(25rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/75 shadow-[0_28px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl origin-bottom-right"
+                    className={cn(
+                        "absolute bottom-[calc(100%+0.9rem)] right-0 z-50 flex max-h-[60vh] w-[min(25rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/75 shadow-[0_28px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl origin-bottom-right",
+                        className
+                    )}
                 >
                     <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.05] p-4">
                         <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-500">Queue</div>
-                            <h3 className="text-sm font-semibold text-white">Up Next</h3>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-500">{eyebrow}</div>
+                            <h3 className="text-sm font-semibold text-white">{title}</h3>
                         </div>
                         <button onClick={onClose} className={cn("text-zinc-400 transition hover:text-white", pressableButtonClass)}>
                             <X size={20} />
@@ -36,10 +53,10 @@ export function QueueList({ isOpen, onClose }: QueueListProps) {
                     </div>
 
                     <div className="no-scrollbar flex-1 overflow-y-auto p-2.5">
-                        {queue.length === 0 ? (
-                            <div className="text-center text-zinc-500 py-10">Queue is empty</div>
+                        {listSongs.length === 0 ? (
+                            <div className="py-10 text-center text-zinc-500">{emptyMessage}</div>
                         ) : (
-                            queue.map((song, index) => {
+                            listSongs.map((song, index) => {
                                 const isCurrent = currentSong?.id === song.id;
                                 return (
                                     <div
@@ -49,7 +66,10 @@ export function QueueList({ isOpen, onClose }: QueueListProps) {
                                             pressableSoftClass,
                                             isCurrent && "bg-white/[0.12]"
                                         )}
-                                        onClick={() => playSong(song)}
+                                        onClick={() => {
+                                            playSong(song);
+                                            onClose();
+                                        }}
                                     >
                                         <div className="relative h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800">
                                             <MusicImage src={song.image} alt={song.title} fill className="object-cover" fallbackIconSize={16} />

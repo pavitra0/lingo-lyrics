@@ -54,6 +54,7 @@ interface PlayerContextType {
     setVolume: (volume: number) => void;
     seek: (time: number) => void;
     isLoading: boolean;
+    suggestions: Song[];
     // Queue
     queue: Song[];
     addToQueue: (song: PlayableSongInput) => void;
@@ -103,6 +104,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
+    const [suggestions, setSuggestions] = useState<Song[]>([]);
 
     // Queue State
     const [queue, setQueueState] = useState<Song[]>([]);
@@ -115,15 +117,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     // Hydration: Load initial state from localStorage on mount
     useEffect(() => {
-        const lastSong = readStoredLastSong();
-        if (lastSong) setCurrentSong(lastSong);
+        const frameId = window.requestAnimationFrame(() => {
+            const lastSong = readStoredLastSong();
+            if (lastSong) {
+                setCurrentSong(lastSong);
+            }
 
-        const storedHistory = readStoredHistory();
-        if (storedHistory.length > 0) setHistory(storedHistory);
+            const storedHistory = readStoredHistory();
+            if (storedHistory.length > 0) {
+                setHistory(storedHistory);
+            }
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+        };
     }, []);
 
     // Helper to map API languages to ISO codes
-    const getLanguageCode = (lang: string): string => {
+    const getLanguageCode = useCallback((lang: string): string => {
         console.log("Detecting Language for:", lang); // DEBUG
         const map: Record<string, string> = {
             "hindi": "hi",
@@ -144,9 +156,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             "assamese": "as"
         };
         return map[lang?.toLowerCase()] || "en";
-    };
+    }, []);
 
-    const buildArtistLinks = (song: PlayableSongInput): SongArtist[] => {
+    const buildArtistLinks = useCallback((song: PlayableSongInput): SongArtist[] => {
         if (song.artistLinks?.length) {
             return song.artistLinks
                 .map((artist) => ({ id: artist.id, name: artist.name.trim() }))
@@ -168,27 +180,27 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             .map((artist) => artist.trim())
             .filter(Boolean)
             .map((name, index) => ({ name, id: index === 0 ? song.artistId : undefined }));
-    };
+    }, []);
 
-    const getImageSrc = (image: PlayableSongInput["image"]) => {
+    const getImageSrc = useCallback((image: PlayableSongInput["image"]) => {
         if (Array.isArray(image) && image.length > 0) {
             const bestImage = image[image.length - 1];
             return bestImage.link || bestImage.url || "";
         }
 
         return typeof image === "string" ? image : "";
-    };
+    }, []);
 
-    const getAudioSrc = (song: PlayableSongInput) => {
+    const getAudioSrc = useCallback((song: PlayableSongInput) => {
         if (Array.isArray(song.downloadUrl) && song.downloadUrl.length > 0) {
             const bestAudio = song.downloadUrl[song.downloadUrl.length - 1];
             return bestAudio.link || bestAudio.url || song.url || "";
         }
 
         return song.url || "";
-    };
+    }, []);
 
-    const normalizeSong = (song: PlayableSongInput): Song => {
+    const normalizeSong = useCallback((song: PlayableSongInput): Song => {
         const artistLinks = buildArtistLinks(song);
         const artistName = artistLinks.length > 0
             ? artistLinks.map((artist) => artist.name).join(", ")
@@ -207,7 +219,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             artistLinks: artistLinks.length > 0 ? artistLinks : undefined,
             language: getLanguageCode(song.language || ""),
         };
-    };
+    }, [buildArtistLinks, getAudioSrc, getImageSrc, getLanguageCode]);
 
     const isLikelyPageUrl = (url: string) => {
         try {
@@ -226,6 +238,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const startNormalizedSong = (normalizedSong: Song) => {
         setCurrentSong(normalizedSong);
         setIsPlaying(true);
+        setSuggestions([]);
 
         // Add to history
         const newHistory = [normalizedSong, ...history.filter(s => s.id !== normalizedSong.id)].slice(0, 50);
@@ -234,12 +247,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
         if (!queue.find(s => s.id === normalizedSong.id)) {
             setQueueState([normalizedSong]);
-            getSongRecommendations(normalizedSong.id).then(recs => {
-                if (recs && recs.length > 0) {
-                    const mappedRecs = recs.map(normalizeSong);
-                    setQueueState(prev => [...prev, ...mappedRecs]);
-                }
-            });
         }
     };
 
@@ -273,6 +280,46 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             localStorage.setItem("lastPlayedSong", JSON.stringify(currentSong));
         }
     }, [currentSong]);
+
+    useEffect(() => {
+        if (!currentSong) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadSuggestions = async () => {
+            try {
+                const recs = await getSongRecommendations(currentSong.id);
+                if (cancelled) return;
+
+                const mappedRecs = recs
+                    .map(normalizeSong)
+                    .filter((song) => song.id !== currentSong.id);
+
+                setSuggestions(mappedRecs);
+
+                setQueueState((prev) => {
+                    if (prev.length <= 1 && prev[0]?.id === currentSong.id) {
+                        return [prev[0], ...mappedRecs];
+                    }
+
+                    return prev;
+                });
+            } catch (error) {
+                console.error("Failed to fetch player suggestions", error);
+                if (!cancelled) {
+                    setSuggestions([]);
+                }
+            }
+        };
+
+        void loadSuggestions();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [currentSong, normalizeSong]);
 
     const addToQueue = (song: PlayableSongInput) => {
         setQueueState(prev => [...prev, normalizeSong(song)]);
@@ -458,6 +505,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                 volume,
                 setVolume,
                 seek,
+                suggestions,
                 queue,
                 addToQueue,
                 setQueue,
